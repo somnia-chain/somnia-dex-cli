@@ -84,10 +84,57 @@ dreamdex order list --json
 
 ### MCP server
 
-The CLI includes an [MCP](https://modelcontextprotocol.io) server via [ophis](https://github.com/njayp/ophis), allowing LLM agents to interact with DreamDEX directly:
+The CLI includes an [MCP](https://modelcontextprotocol.io) server via [ophis](https://github.com/njayp/ophis), allowing LLM agents to interact with DreamDEX as tool calls.
+
+#### stdio (default)
+
+Runs the server over stdin/stdout, the standard transport for most MCP clients:
 
 ```sh
 dreamdex mcp start
+```
+
+#### HTTP (Streamable HTTP)
+
+Runs the server as an HTTP endpoint for remote or multi-client access:
+
+```sh
+dreamdex mcp stream --addr :8080
+```
+
+#### IDE integration
+
+Register the MCP server with your editor in one command:
+
+```sh
+dreamdex mcp claude   # Claude Desktop
+dreamdex mcp cursor   # Cursor
+dreamdex mcp vscode   # VS Code
+```
+
+#### Claude Code / OpenClaw
+
+Add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.json` (global):
+
+```json
+{
+  "mcpServers": {
+    "dreamdex": {
+      "command": "dreamdex",
+      "args": ["mcp", "start"],
+      "env": {
+        "DREAMDEX_PRIVATE_KEY": "0x..."
+      }
+    }
+  }
+}
+```
+
+#### Inspect available tools
+
+```sh
+dreamdex mcp tools          # human-readable
+dreamdex mcp tools --json   # JSON schema for each tool
 ```
 
 ### LLM skill reference
