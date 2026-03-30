@@ -88,8 +88,7 @@ func (c *Client) do(method, path string, query url.Values, body, result any) err
 	return nil
 }
 
-// Types
-
+// Market represents a trading pair on DreamDEX.
 type Market struct {
 	Symbol        string `json:"symbol"`
 	Contract      string `json:"contract"`
@@ -102,6 +101,7 @@ type Market struct {
 	MinQuantity   string `json:"minQuantity"`
 }
 
+// Currency represents a token supported by the exchange.
 type Currency struct {
 	ID       string `json:"id"`
 	Code     string `json:"code"`
@@ -109,11 +109,13 @@ type Currency struct {
 	Decimals int    `json:"decimals"`
 }
 
+// PriceLevel is a single price/quantity entry in an order book.
 type PriceLevel struct {
 	Price    string `json:"price"`
 	Quantity string `json:"quantity"`
 }
 
+// OrderBook holds the bids and asks for a market.
 type OrderBook struct {
 	Symbol    string       `json:"symbol"`
 	Timestamp int64        `json:"timestamp"`
@@ -122,6 +124,7 @@ type OrderBook struct {
 	Asks      []PriceLevel `json:"asks"`
 }
 
+// Ticker holds 24-hour OHLCV statistics for a market.
 type Ticker struct {
 	Symbol    string `json:"symbol"`
 	Timestamp int64  `json:"timestamp"`
@@ -132,6 +135,7 @@ type Ticker struct {
 	Volume    string `json:"volume"`
 }
 
+// Trade represents a completed trade on a market.
 type Trade struct {
 	ID        string `json:"id"`
 	Timestamp int64  `json:"timestamp"`
@@ -142,6 +146,7 @@ type Trade struct {
 	Cost      string `json:"cost"`
 }
 
+// Candle holds OHLCV data for a single time interval.
 type Candle struct {
 	Timestamp int64  `json:"timestamp"`
 	Open      string `json:"open"`
@@ -151,6 +156,7 @@ type Candle struct {
 	Volume    string `json:"volume"`
 }
 
+// Order represents an order on the exchange.
 type Order struct {
 	ID            string `json:"id"`
 	Status        string `json:"status"`
@@ -166,11 +172,13 @@ type Order struct {
 	TxHash        string `json:"txHash,omitempty"`
 }
 
+// OrderApproval indicates a token approval is required before an order can execute.
 type OrderApproval struct {
 	Token  string `json:"token"`
 	Amount string `json:"amount"`
 }
 
+// Transaction is an unsigned EVM transaction returned by the API for client-side signing.
 type Transaction struct {
 	To       string         `json:"to"`
 	Data     string         `json:"data"`
@@ -181,11 +189,13 @@ type Transaction struct {
 	Approval *OrderApproval `json:"approval,omitempty"`
 }
 
+// VaultBalance holds a currency balance in the vault.
 type VaultBalance struct {
 	Currency string `json:"currency"`
 	Amount   string `json:"amount"`
 }
 
+// PrepareOrderRequest is the request body for preparing a new order.
 type PrepareOrderRequest struct {
 	Type               string `json:"type"`
 	Side               string `json:"side"`
@@ -198,14 +208,14 @@ type PrepareOrderRequest struct {
 	ExpiresAt          int64  `json:"expiresAt,omitempty"`
 }
 
+// VaultActionRequest is the request body for vault approve, deposit, and withdraw operations.
 type VaultActionRequest struct {
 	WalletAddress string `json:"walletAddress"`
 	Currency      string `json:"currency"`
 	Amount        string `json:"amount"`
 }
 
-// API methods
-
+// GetMarkets returns all available trading pairs.
 func (c *Client) GetMarkets() ([]Market, error) {
 	var resp struct {
 		Markets []Market `json:"markets"`
@@ -213,6 +223,7 @@ func (c *Client) GetMarkets() ([]Market, error) {
 	return resp.Markets, c.do("GET", "/v0/markets", nil, nil, &resp)
 }
 
+// GetCurrencies returns all supported currencies.
 func (c *Client) GetCurrencies() ([]Currency, error) {
 	var resp struct {
 		Currencies []Currency `json:"currencies"`
@@ -220,6 +231,7 @@ func (c *Client) GetCurrencies() ([]Currency, error) {
 	return resp.Currencies, c.do("GET", "/v0/currencies", nil, nil, &resp)
 }
 
+// GetOrderBooks returns order books for the given symbols, optionally limited to depth levels.
 func (c *Client) GetOrderBooks(symbols []string, depth int) ([]OrderBook, error) {
 	q := url.Values{}
 	for _, s := range symbols {
@@ -234,6 +246,7 @@ func (c *Client) GetOrderBooks(symbols []string, depth int) ([]OrderBook, error)
 	return resp.OrderBooks, c.do("GET", "/v0/orderbooks", q, nil, &resp)
 }
 
+// GetTicker returns 24-hour statistics for a market.
 func (c *Client) GetTicker(symbol string) ([]Ticker, error) {
 	var resp struct {
 		Symbols []Ticker `json:"symbols"`
@@ -242,6 +255,7 @@ func (c *Client) GetTicker(symbol string) ([]Ticker, error) {
 	return resp.Symbols, c.do("GET", path, nil, nil, &resp)
 }
 
+// GetTrades returns recent trades for a market, optionally filtered by timestamp and count.
 func (c *Client) GetTrades(symbol string, since int64, limit int) ([]Trade, error) {
 	q := url.Values{}
 	if since > 0 {
@@ -257,6 +271,7 @@ func (c *Client) GetTrades(symbol string, since int64, limit int) ([]Trade, erro
 	return resp.Trades, c.do("GET", path, q, nil, &resp)
 }
 
+// GetCandles returns OHLCV candle data for a market at the given interval.
 func (c *Client) GetCandles(symbol, interval string, limit int) ([]Candle, error) {
 	q := url.Values{"interval": {interval}}
 	if limit > 0 {
@@ -269,6 +284,7 @@ func (c *Client) GetCandles(symbol, interval string, limit int) ([]Candle, error
 	return resp.Candles, c.do("GET", path, q, nil, &resp)
 }
 
+// GetNonce fetches a one-time nonce for SIWE authentication.
 func (c *Client) GetNonce() (string, error) {
 	var resp struct {
 		Nonce string `json:"nonce"`
@@ -276,6 +292,7 @@ func (c *Client) GetNonce() (string, error) {
 	return resp.Nonce, c.do("GET", "/v0/auth/nonce", nil, nil, &resp)
 }
 
+// Login exchanges a signed SIWE message for a JWT token.
 func (c *Client) Login(message, signature string) (token string, expiresAt int64, err error) {
 	body := struct {
 		Message   string `json:"message"`
@@ -289,12 +306,14 @@ func (c *Client) Login(message, signature string) (token string, expiresAt int64
 	return resp.Token, resp.ExpiresAt, err
 }
 
+// PrepareOrder returns an unsigned transaction for placing an order on the given market.
 func (c *Client) PrepareOrder(symbol string, req *PrepareOrderRequest) (*Transaction, error) {
 	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/orders", url.PathEscape(symbol))
 	return &resp, c.do("POST", path, nil, req, &resp)
 }
 
+// GetOrders lists orders for a market, optionally filtered by status.
 func (c *Client) GetOrders(symbol, status string) ([]Order, error) {
 	q := url.Values{}
 	if status != "" {
@@ -307,18 +326,21 @@ func (c *Client) GetOrders(symbol, status string) ([]Order, error) {
 	return resp.Orders, c.do("GET", path, q, nil, &resp)
 }
 
+// GetOrder returns details for a single order.
 func (c *Client) GetOrder(symbol, id string) (*Order, error) {
 	var resp Order
 	path := fmt.Sprintf("/v0/markets/%s/orders/%s", url.PathEscape(symbol), url.PathEscape(id))
 	return &resp, c.do("GET", path, nil, nil, &resp)
 }
 
+// CancelOrder cancels an open order and returns the updated order.
 func (c *Client) CancelOrder(symbol, id string) (*Order, error) {
 	var resp Order
 	path := fmt.Sprintf("/v0/markets/%s/orders/%s", url.PathEscape(symbol), url.PathEscape(id))
 	return &resp, c.do("DELETE", path, nil, nil, &resp)
 }
 
+// ReduceOrder returns an unsigned transaction to reduce an order's remaining quantity.
 func (c *Client) ReduceOrder(symbol, id, newQty string) (*Transaction, error) {
 	var resp Transaction
 	body := struct {
@@ -328,6 +350,7 @@ func (c *Client) ReduceOrder(symbol, id, newQty string) (*Transaction, error) {
 	return &resp, c.do("PATCH", path, nil, &body, &resp)
 }
 
+// GetVaultBalance returns vault balances for a wallet on the given market.
 func (c *Client) GetVaultBalance(symbol, wallet string) ([]VaultBalance, error) {
 	q := url.Values{"walletAddress": {wallet}}
 	var resp struct {
@@ -337,18 +360,21 @@ func (c *Client) GetVaultBalance(symbol, wallet string) ([]VaultBalance, error) 
 	return resp.Balances, c.do("GET", path, q, nil, &resp)
 }
 
+// PrepareApproval returns an unsigned transaction to approve token spending for vault deposits.
 func (c *Client) PrepareApproval(symbol string, req *VaultActionRequest) (*Transaction, error) {
 	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/vault/approve", url.PathEscape(symbol))
 	return &resp, c.do("POST", path, nil, req, &resp)
 }
 
+// PrepareDeposit returns an unsigned transaction to deposit tokens into the vault.
 func (c *Client) PrepareDeposit(symbol string, req *VaultActionRequest) (*Transaction, error) {
 	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/vault/deposit", url.PathEscape(symbol))
 	return &resp, c.do("POST", path, nil, req, &resp)
 }
 
+// PrepareWithdraw returns an unsigned transaction to withdraw tokens from the vault.
 func (c *Client) PrepareWithdraw(symbol string, req *VaultActionRequest) (*Transaction, error) {
 	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/vault/withdraw", url.PathEscape(symbol))

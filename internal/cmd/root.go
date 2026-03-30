@@ -23,61 +23,67 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var client *api.Client
+// app holds shared state for all commands.
+type app struct {
+	client *api.Client
+}
 
-var rootCmd = &cobra.Command{
-	Use:   "dreamdex",
-	Short: "Trade on Somnia's DreamDEX",
-	Long: `DreamDEX CLI — a non-custodial trading client for DreamDEX on Somnia.
+// Execute runs the root command and exits on error.
+func Execute() {
+	a := &app{}
+	if err := a.rootCmd().Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// rootCmd builds the top-level command with persistent flags and all subcommands.
+func (a *app) rootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "dreamdex",
+		Short: "Trade on Somnia's DreamDEX",
+		Long: `DreamDEX CLI — a non-custodial trading client for DreamDEX on Somnia.
 
 Environment variables:
   DREAMDEX_API_URL       API base URL (default: staging)
   DREAMDEX_RPC_URL       Somnia JSON-RPC URL
   DREAMDEX_PRIVATE_KEY   Hex-encoded private key for signing`,
-	SilenceUsage: true,
-	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-		apiURL, _ := cmd.Flags().GetString("api-url")
-		client = api.NewClient(apiURL)
-		if token, err := loadToken(); err == nil {
-			client.Token = token
-		} else if os.Getenv("DREAMDEX_PRIVATE_KEY") != "" {
-			authenticate(apiURL) //nolint:errcheck // best-effort; commands that need auth will fail with a clear message
-		}
-		return nil
-	},
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-func init() {
-	rootCmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.dreamdex.somnia.host"), "API base URL")
-	rootCmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
-	rootCmd.PersistentFlags().Bool("json", false, "output as JSON")
-
-	rootCmd.AddCommand(ophis.Command(&ophis.Config{
-		DefaultEnv: map[string]string{
-			"PATH": os.Getenv("PATH"),
+		SilenceUsage: true,
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			apiURL, _ := cmd.Flags().GetString("api-url")
+			a.client = api.NewClient(apiURL)
+			if token, err := loadToken(); err == nil {
+				a.client.Token = token
+			} else if os.Getenv("DREAMDEX_PRIVATE_KEY") != "" {
+				a.authenticate(apiURL) //nolint:errcheck // best-effort
+			}
+			return nil
 		},
-	}))
+	}
+
+	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.dreamdex.somnia.host"), "API base URL")
+	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
+	cmd.PersistentFlags().Bool("json", false, "output as JSON")
+
+	cmd.AddCommand(
+		a.marketsCmd(),
+		a.currenciesCmd(),
+		a.orderbookCmd(),
+		a.tickerCmd(),
+		a.tradesCmd(),
+		a.candlesCmd(),
+		a.loginCmd(),
+		a.orderCmd(),
+		a.vaultCmd(),
+		skillCmd(),
+		ophis.Command(&ophis.Config{
+			DefaultEnv: map[string]string{"PATH": os.Getenv("PATH")},
+		}),
+	)
+
+	return cmd
 }
 
-// Helpers
-
-func isJSON(cmd *cobra.Command) bool {
-	v, _ := cmd.Flags().GetBool("json")
-	return v
-}
-
-func printJSON(v any) error {
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
-}
-
+// envOr returns the environment variable value or fallback if unset.
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -85,6 +91,20 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+// isJSON returns true when the --json flag is set.
+func isJSON(cmd *cobra.Command) bool {
+	v, _ := cmd.Flags().GetBool("json")
+	return v
+}
+
+// printJSON writes v to stdout as indented JSON.
+func printJSON(v any) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
+// privateKey loads the ECDSA key from the DREAMDEX_PRIVATE_KEY environment variable.
 func privateKey() (*ecdsa.PrivateKey, error) {
 	raw := os.Getenv("DREAMDEX_PRIVATE_KEY")
 	if raw == "" {
@@ -94,13 +114,29 @@ func privateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.HexToECDSA(raw)
 }
 
-// Token persistence
+// resolveSymbols returns args if non-empty, otherwise fetches all market symbols.
+func (a *app) resolveSymbols(args []string) ([]string, error) {
+	if len(args) > 0 {
+		return args, nil
+	}
+	markets, err := a.client.GetMarkets()
+	if err != nil {
+		return nil, fmt.Errorf("fetch markets: %w", err)
+	}
+	symbols := make([]string, len(markets))
+	for i, m := range markets {
+		symbols[i] = m.Symbol
+	}
+	return symbols, nil
+}
 
+// tokenFile is the on-disk format for cached JWT tokens.
 type tokenFile struct {
 	Token     string `json:"token"`
 	ExpiresAt int64  `json:"expires_at"`
 }
 
+// tokenPath returns the path to the cached token file (~/.config/dreamdex/token.json).
 func tokenPath() string {
 	if dir, err := os.UserConfigDir(); err == nil {
 		return filepath.Join(dir, "dreamdex", "token.json")
@@ -109,6 +145,7 @@ func tokenPath() string {
 	return filepath.Join(home, ".config", "dreamdex", "token.json")
 }
 
+// loadToken reads a cached JWT from disk, returning an error if missing or expired.
 func loadToken() (string, error) {
 	data, err := os.ReadFile(tokenPath())
 	if err != nil {
@@ -124,6 +161,7 @@ func loadToken() (string, error) {
 	return t.Token, nil
 }
 
+// saveToken persists a JWT and its expiry to disk.
 func saveToken(token string, expiresAt int64) error {
 	p := tokenPath()
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
@@ -133,8 +171,7 @@ func saveToken(token string, expiresAt int64) error {
 	return os.WriteFile(p, data, 0o600)
 }
 
-// SIWE signing
-
+// signPersonal signs a message using EIP-191 personal_sign and returns the hex signature.
 func signPersonal(key *ecdsa.PrivateKey, message string) (string, error) {
 	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(message))
 	hash := crypto.Keccak256([]byte(prefix + message))
@@ -146,8 +183,7 @@ func signPersonal(key *ecdsa.PrivateKey, message string) (string, error) {
 	return "0x" + hex.EncodeToString(sig), nil
 }
 
-// Transaction signing and broadcasting
-
+// signAndSend signs an unsigned transaction from the API and broadcasts it via RPC.
 func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction, wait bool) error {
 	rpcURL, _ := cmd.Flags().GetString("rpc-url")
 	ec, err := ethclient.Dial(rpcURL)
@@ -226,6 +262,7 @@ func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction,
 	return nil
 }
 
+// waitForReceipt polls for a transaction receipt until confirmed or timeout (2 minutes).
 func waitForReceipt(ctx context.Context, ec *ethclient.Client, hash common.Hash) (*types.Receipt, error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
