@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,10 +18,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -51,6 +57,7 @@ Environment variables:
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			apiURL, _ := cmd.Flags().GetString("api-url")
 			a.client = api.NewClient(apiURL)
+			a.client.Debug, _ = cmd.Flags().GetBool("debug")
 			if token, err := loadToken(); err == nil {
 				a.client.Token = token
 			} else if os.Getenv("DREAMDEX_PRIVATE_KEY") != "" {
@@ -63,6 +70,7 @@ Environment variables:
 	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.dreamdex.somnia.host"), "API base URL")
 	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
 	cmd.PersistentFlags().Bool("json", false, "output as JSON")
+	cmd.PersistentFlags().Bool("debug", false, "emit raw API responses")
 
 	cmd.AddCommand(
 		a.marketsCmd(),
@@ -184,13 +192,29 @@ func signPersonal(key *ecdsa.PrivateKey, message string) (string, error) {
 }
 
 // signAndSend signs an unsigned transaction from the API and broadcasts it via RPC.
-func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction, wait bool) error {
+func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction, wait bool, labels ...string) error {
+	label := "Transaction"
+	if len(labels) > 0 {
+		label = labels[0]
+	}
+	debug, _ := cmd.Flags().GetBool("debug")
+	if debug {
+		printJSON(tx) //nolint:errcheck
+	}
+
 	rpcURL, _ := cmd.Flags().GetString("rpc-url")
-	ec, err := ethclient.Dial(rpcURL)
+	var opts []rpc.ClientOption
+	if debug {
+		opts = append(opts, rpc.WithHTTPClient(&http.Client{
+			Transport: &debugTransport{base: http.DefaultTransport},
+		}))
+	}
+	rc, err := rpc.DialOptions(context.Background(), rpcURL, opts...)
 	if err != nil {
 		return fmt.Errorf("connect to RPC: %w", err)
 	}
-	defer ec.Close()
+	defer rc.Close()
+	ec := ethclient.NewClient(rc)
 
 	ctx := context.Background()
 	from := crypto.PubkeyToAddress(key.PublicKey)
@@ -217,7 +241,7 @@ func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction,
 			From: from, To: &to, Value: value, Data: data,
 		})
 		if err != nil {
-			return fmt.Errorf("estimate gas: %w", err)
+			return fmt.Errorf("transaction would revert: %s", revertReason(err))
 		}
 	}
 
@@ -248,15 +272,27 @@ func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction,
 		return fmt.Errorf("send tx: %w", err)
 	}
 
-	fmt.Printf("Transaction sent: %s\n", signed.Hash().Hex())
+	fmt.Printf("%s sent: %s\n", label, signed.Hash().Hex())
 
 	if wait {
-		fmt.Print("Waiting for confirmation...")
+		fmt.Printf("Waiting for %s confirmation...", strings.ToLower(label))
 		receipt, err := waitForReceipt(ctx, ec, signed.Hash())
 		if err != nil {
 			return fmt.Errorf("\nwait for receipt: %w", err)
 		}
-		fmt.Printf("\nConfirmed in block %s (status: %d)\n", receipt.BlockNumber, receipt.Status)
+		fmt.Printf(" confirmed in block %s (status: %d)\n", receipt.BlockNumber, receipt.Status)
+		if debug && len(receipt.Logs) > 0 {
+			fmt.Fprintf(os.Stderr, "<< %d event(s) emitted:\n", len(receipt.Logs))
+			for i, log := range receipt.Logs {
+				fmt.Fprintf(os.Stderr, "   [%d] address=%s\n", i, log.Address.Hex())
+				for j, topic := range log.Topics {
+					fmt.Fprintf(os.Stderr, "       topic[%d]=%s\n", j, topic.Hex())
+				}
+				if len(log.Data) > 0 {
+					fmt.Fprintf(os.Stderr, "       data=0x%s\n", hex.EncodeToString(log.Data))
+				}
+			}
+		}
 	}
 
 	return nil
@@ -281,4 +317,53 @@ func waitForReceipt(ctx context.Context, ec *ethclient.Client, hash common.Hash)
 			}
 		}
 	}
+}
+
+// debugTransport wraps an http.RoundTripper and logs JSON-RPC requests and responses to stderr.
+type debugTransport struct {
+	base http.RoundTripper
+}
+
+func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	var reqBody []byte
+	if req.Body != nil {
+		reqBody, _ = io.ReadAll(req.Body)
+		req.Body = io.NopCloser(bytes.NewReader(reqBody))
+	}
+	if len(reqBody) > 0 {
+		var buf bytes.Buffer
+		json.Indent(&buf, reqBody, "", "  ")
+		fmt.Fprintf(os.Stderr, ">> RPC %s %s\n>> %s\n", req.Method, req.URL, buf.String())
+	}
+
+	resp, err := d.base.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+	if len(respBody) > 0 {
+		var buf bytes.Buffer
+		json.Indent(&buf, respBody, "", "  ")
+		fmt.Fprintf(os.Stderr, "<< %s\n", buf.String())
+	}
+	return resp, nil
+}
+
+// revertReason extracts a human-readable reason from an EVM revert error.
+func revertReason(err error) string {
+	var dataErr rpc.DataError
+	if !errors.As(err, &dataErr) {
+		return err.Error()
+	}
+	hexData, ok := dataErr.ErrorData().(string)
+	if !ok {
+		return err.Error()
+	}
+	data := common.FromHex(hexData)
+	if reason, unpackErr := abi.UnpackRevert(data); unpackErr == nil {
+		return reason
+	}
+	return err.Error()
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -29,6 +30,7 @@ type Client struct {
 	BaseURL string
 	Token   string
 	HTTP    *http.Client
+	Debug   bool
 }
 
 // NewClient creates a new API client for the given base URL.
@@ -46,12 +48,23 @@ func (c *Client) do(method, path string, query url.Values, body, result any) err
 	}
 
 	var bodyReader io.Reader
+	var bodyBytes []byte
 	if body != nil {
-		b, err := json.Marshal(body)
+		var err error
+		bodyBytes, err = json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("marshal request: %w", err)
 		}
-		bodyReader = bytes.NewReader(b)
+		bodyReader = bytes.NewReader(bodyBytes)
+	}
+
+	if c.Debug {
+		fmt.Fprintf(os.Stderr, ">> %s %s\n", method, u)
+		if bodyBytes != nil {
+			var buf bytes.Buffer
+			json.Indent(&buf, bodyBytes, "", "  ")
+			fmt.Fprintf(os.Stderr, ">> %s\n", buf.String())
+		}
 	}
 
 	req, err := http.NewRequest(method, u, bodyReader)
@@ -333,9 +346,9 @@ func (c *Client) GetOrder(symbol, id string) (*Order, error) {
 	return &resp, c.do("GET", path, nil, nil, &resp)
 }
 
-// CancelOrder cancels an open order and returns the updated order.
-func (c *Client) CancelOrder(symbol, id string) (*Order, error) {
-	var resp Order
+// CancelOrder returns an unsigned transaction to cancel an open order on-chain.
+func (c *Client) CancelOrder(symbol, id string) (*Transaction, error) {
+	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/orders/%s", url.PathEscape(symbol), url.PathEscape(id))
 	return &resp, c.do("DELETE", path, nil, nil, &resp)
 }

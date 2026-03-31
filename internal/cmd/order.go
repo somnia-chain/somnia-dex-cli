@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
+	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -50,9 +53,23 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 			price, _ := cmd.Flags().GetString("price")
 			orderType, _ := cmd.Flags().GetString("order-type")
 			fundingSource, _ := cmd.Flags().GetString("funding-source")
+			slippage, _ := cmd.Flags().GetFloat64("slippage")
 
 			if typ == "limit" && price == "" {
 				return fmt.Errorf("--price is required for limit orders")
+			}
+
+			// Market orders: convert to limit IOC with orderbook-derived price.
+			if typ == "market" {
+				p, err := marketPrice(a.client, args[0], side, slippage)
+				if err != nil {
+					return fmt.Errorf("determine market price: %w", err)
+				}
+				price = p
+				typ = "limit"
+				if orderType == "" {
+					orderType = "immediateOrCancel"
+				}
 			}
 
 			tx, err := a.client.PrepareOrder(args[0], &api.PrepareOrderRequest{
@@ -69,16 +86,31 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 			}
 
 			if tx.Approval != nil {
-				fmt.Printf("Token approval required before this order can execute:\n")
-				fmt.Printf("  Token:  %s\n", tx.Approval.Token)
-				fmt.Printf("  Amount: %s\n", tx.Approval.Amount)
-				fmt.Println("\nApprove with: dreamdex vault approve <symbol> --currency <code> --amount <amount>")
-				fmt.Println("Then retry this order.")
-				return nil
+				code := tx.Approval.Token
+				if currencies, err := a.client.GetCurrencies(); err == nil {
+					for _, c := range currencies {
+						if strings.EqualFold(c.ID, tx.Approval.Token) {
+							code = c.Code
+							break
+						}
+					}
+				}
+				approveTx, err := a.client.PrepareApproval(args[0], &api.VaultActionRequest{
+					WalletAddress: addr.Hex(),
+					Currency:      code,
+					Amount:        tx.Approval.Amount,
+				})
+				if err != nil {
+					return fmt.Errorf("prepare approval: %w", err)
+				}
+				approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
+				if err := signAndSend(cmd, key, approveTx, true, approveLabel); err != nil {
+					return fmt.Errorf("token approval: %w", err)
+				}
 			}
 
 			wait, _ := cmd.Flags().GetBool("wait")
-			return signAndSend(cmd, key, tx, wait)
+			return signAndSend(cmd, key, tx, wait, "Order")
 		},
 	}
 	f := cmd.Flags()
@@ -88,6 +120,7 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 	f.String("price", "", "limit price (required for limit orders)")
 	f.String("order-type", "", "normalOrder, fillOrKill, immediateOrCancel, postOnly")
 	f.String("funding-source", "", "wallet or vault")
+	f.Float64("slippage", 0.5, "slippage tolerance for market orders (percent)")
 	f.Bool("wait", false, "wait for transaction confirmation")
 	cmd.MarkFlagRequired("side")
 	cmd.MarkFlagRequired("amount")
@@ -122,10 +155,11 @@ func (a *app) orderListCmd() *cobra.Command {
 				return printJSON(all)
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "SYMBOL\tID\tSTATUS\tTYPE\tSIDE\tPRICE\tAMOUNT\tFILLED\tREMAINING")
+			fmt.Fprintln(w, "SYMBOL\tID\tCREATED\tSTATUS\tTYPE\tSIDE\tPRICE\tAMOUNT\tFILLED\tREMAINING")
 			for _, o := range all {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					o.Symbol, o.ID, o.Status, o.Type, o.Side, o.Price, o.Amount, o.Filled, o.Remaining)
+				created := time.UnixMilli(o.CreatedAt).Format("2006-01-02 15:04:05")
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					o.Symbol, o.ID, created, o.Status, o.Type, o.Side, o.Price, o.Amount, o.Filled, o.Remaining)
 			}
 			return w.Flush()
 		},
@@ -168,9 +202,9 @@ func (a *app) orderGetCmd() *cobra.Command {
 	}
 }
 
-// orderCancelCmd returns the "order cancel" command, which cancels an open order.
+// orderCancelCmd returns the "order cancel" command, which cancels an open order on-chain.
 func (a *app) orderCancelCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "cancel <symbol> <id>",
 		Short: "Cancel an open order",
 		Args:  cobra.ExactArgs(2),
@@ -179,17 +213,20 @@ func (a *app) orderCancelCmd() *cobra.Command {
 			ophis.AnnotationDestructive: "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			o, err := a.client.CancelOrder(args[0], args[1])
+			key, err := privateKey()
 			if err != nil {
 				return err
 			}
-			if isJSON(cmd) {
-				return printJSON(o)
+			tx, err := a.client.CancelOrder(args[0], args[1])
+			if err != nil {
+				return err
 			}
-			fmt.Printf("Order %s canceled (status: %s)\n", o.ID, o.Status)
-			return nil
+			wait, _ := cmd.Flags().GetBool("wait")
+			return signAndSend(cmd, key, tx, wait, "Cancel")
 		},
 	}
+	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
+	return cmd
 }
 
 // orderReduceCmd returns the "order reduce" command, which reduces an order's remaining quantity.
@@ -212,7 +249,7 @@ func (a *app) orderReduceCmd() *cobra.Command {
 				return err
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return signAndSend(cmd, key, tx, wait)
+			return signAndSend(cmd, key, tx, wait, "Order reduce")
 		},
 	}
 	cmd.Flags().String("quantity", "", "new remaining quantity (required)")
@@ -220,3 +257,67 @@ func (a *app) orderReduceCmd() *cobra.Command {
 	cmd.MarkFlagRequired("quantity")
 	return cmd
 }
+
+// marketPrice derives a worst-case price for a market order from the orderbook.
+// For buys it uses the best ask + slippage; for sells, best bid - slippage.
+// The result is rounded to the market's tick size.
+func marketPrice(c *api.Client, symbol, side string, slippagePct float64) (string, error) {
+	books, err := c.GetOrderBooks([]string{symbol}, 1)
+	if err != nil {
+		return "", fmt.Errorf("fetch orderbook: %w", err)
+	}
+	if len(books) == 0 {
+		return "", fmt.Errorf("no orderbook for %s", symbol)
+	}
+	book := books[0]
+
+	var bestPrice float64
+	switch side {
+	case "buy":
+		if len(book.Asks) == 0 {
+			return "", fmt.Errorf("no asks in orderbook for %s", symbol)
+		}
+		bestPrice, _ = strconv.ParseFloat(book.Asks[0].Price, 64)
+		bestPrice *= 1 + slippagePct/100
+	case "sell":
+		if len(book.Bids) == 0 {
+			return "", fmt.Errorf("no bids in orderbook for %s", symbol)
+		}
+		bestPrice, _ = strconv.ParseFloat(book.Bids[0].Price, 64)
+		bestPrice *= 1 - slippagePct/100
+	default:
+		return "", fmt.Errorf("invalid side: %s", side)
+	}
+
+	// Round to tick size.
+	markets, err := c.GetMarkets()
+	if err != nil {
+		return "", fmt.Errorf("fetch markets: %w", err)
+	}
+	tickSize := 0.0
+	for _, m := range markets {
+		if m.Symbol == symbol {
+			tickSize, _ = strconv.ParseFloat(m.TickSize, 64)
+			break
+		}
+	}
+	if tickSize <= 0 {
+		return "", fmt.Errorf("unknown tick size for %s", symbol)
+	}
+
+	// Round: buys up to next tick, sells down.
+	var rounded float64
+	if side == "buy" {
+		rounded = math.Ceil(bestPrice/tickSize) * tickSize
+	} else {
+		rounded = math.Floor(bestPrice/tickSize) * tickSize
+	}
+
+	// Format with enough decimals to represent the tick size.
+	decimals := 0
+	if s := strconv.FormatFloat(tickSize, 'f', -1, 64); strings.Contains(s, ".") {
+		decimals = len(s) - strings.Index(s, ".") - 1
+	}
+	return strconv.FormatFloat(rounded, 'f', decimals, 64), nil
+}
+
