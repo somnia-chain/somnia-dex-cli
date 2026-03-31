@@ -4,6 +4,14 @@ A non-custodial trading client for [DreamDEX](https://dreamdex.somnia.host) on t
 
 ## Install
 
+Via [mise](https://mise.jdx.dev):
+
+```sh
+mise use -g go:github.com/somnia-chain/somnia-dex-cli/cmd/dreamdex
+```
+
+Via `go install`:
+
 ```sh
 go install github.com/somnia-chain/somnia-dex-cli/cmd/dreamdex@latest
 ```
