@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -104,13 +105,16 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 					return fmt.Errorf("prepare approval: %w", err)
 				}
 				approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
-				if err := signAndSend(cmd, key, approveTx, true, approveLabel); err != nil {
+				if err := a.signAndSend(cmd, key, approveTx, true, approveLabel); err != nil {
 					return fmt.Errorf("token approval: %w", err)
 				}
 			}
 
+			if tx.OrderID != "" {
+				fmt.Printf("Order ID: %s\n", tx.OrderID)
+			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return signAndSend(cmd, key, tx, wait, "Order")
+			return a.signAndSend(cmd, key, tx, wait, "Order")
 		},
 	}
 	f := cmd.Flags()
@@ -151,6 +155,9 @@ func (a *app) orderListCmd() *cobra.Command {
 				}
 				all = append(all, orders...)
 			}
+			slices.SortFunc(all, func(a, b api.Order) int {
+				return int(a.CreatedAt - b.CreatedAt)
+			})
 			if isJSON(cmd) {
 				return printJSON(all)
 			}
@@ -222,7 +229,7 @@ func (a *app) orderCancelCmd() *cobra.Command {
 				return err
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return signAndSend(cmd, key, tx, wait, "Cancel")
+			return a.signAndSend(cmd, key, tx, wait, "Cancel")
 		},
 	}
 	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
@@ -249,7 +256,7 @@ func (a *app) orderReduceCmd() *cobra.Command {
 				return err
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return signAndSend(cmd, key, tx, wait, "Order reduce")
+			return a.signAndSend(cmd, key, tx, wait, "Order reduce")
 		},
 	}
 	cmd.Flags().String("quantity", "", "new remaining quantity (required)")

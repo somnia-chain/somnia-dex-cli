@@ -131,7 +131,7 @@ func (a *app) vaultActionCmd(use, short string, prepare prepareFunc) *cobra.Comm
 
 			wait, _ := cmd.Flags().GetBool("wait")
 			label := strings.Title(use) //nolint:staticcheck
-			return signAndSend(cmd, key, tx, wait, label)
+			return a.signAndSend(cmd, key, tx, wait, label)
 		},
 	}
 	cmd.Flags().String("currency", "", "currency code, e.g. SOM or USDC (required)")

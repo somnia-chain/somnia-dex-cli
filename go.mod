@@ -6,6 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.17.1
 	github.com/njayp/ophis v1.1.4
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/net v0.52.0
 )
 
 require (
@@ -26,6 +27,7 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/lmittmann/tint v1.1.3 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.3.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
@@ -39,5 +41,5 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 )

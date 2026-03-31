@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/lmittmann/tint"
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -32,12 +34,14 @@ import (
 // app holds shared state for all commands.
 type app struct {
 	client *api.Client
+	log    *slog.Logger
 }
 
 // Execute runs the root command and exits on error.
 func Execute() {
 	a := &app{}
 	if err := a.rootCmd().Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -53,11 +57,19 @@ Environment variables:
   DREAMDEX_API_URL       API base URL (default: staging)
   DREAMDEX_RPC_URL       Somnia JSON-RPC URL
   DREAMDEX_PRIVATE_KEY   Hex-encoded private key for signing`,
-		SilenceUsage: true,
+		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Silence usage after arg validation so only input errors show help.
+			cmd.SilenceUsage = true
+
+			levelName, _ := cmd.Flags().GetString("log-level")
+			a.log = slog.New(tint.NewHandler(os.Stderr, &tint.Options{
+				Level: parseLogLevel(levelName),
+			}))
+
 			apiURL, _ := cmd.Flags().GetString("api-url")
 			a.client = api.NewClient(apiURL)
-			a.client.Debug, _ = cmd.Flags().GetBool("debug")
+			a.client.Log = a.log
 			if token, err := loadToken(); err == nil {
 				a.client.Token = token
 			} else if os.Getenv("DREAMDEX_PRIVATE_KEY") != "" {
@@ -69,8 +81,8 @@ Environment variables:
 
 	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.dreamdex.somnia.host"), "API base URL")
 	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
+	cmd.PersistentFlags().String("log-level", "warn", "log level: debug, info, warn, error")
 	cmd.PersistentFlags().Bool("json", false, "output as JSON")
-	cmd.PersistentFlags().Bool("debug", false, "emit raw API responses")
 
 	cmd.AddCommand(
 		a.marketsCmd(),
@@ -82,6 +94,7 @@ Environment variables:
 		a.loginCmd(),
 		a.orderCmd(),
 		a.vaultCmd(),
+		a.watchCmd(),
 		skillCmd(),
 		ophis.Command(&ophis.Config{
 			DefaultEnv: map[string]string{"PATH": os.Getenv("PATH")},
@@ -192,24 +205,19 @@ func signPersonal(key *ecdsa.PrivateKey, message string) (string, error) {
 }
 
 // signAndSend signs an unsigned transaction from the API and broadcasts it via RPC.
-func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction, wait bool, labels ...string) error {
+func (a *app) signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction, wait bool, labels ...string) error {
 	label := "Transaction"
 	if len(labels) > 0 {
 		label = labels[0]
 	}
-	debug, _ := cmd.Flags().GetBool("debug")
-	if debug {
-		printJSON(tx) //nolint:errcheck
-	}
+	a.log.Debug("unsigned tx", "to", tx.To, "value", tx.Value, "chainId", tx.ChainID, "data", tx.Data)
 
 	rpcURL, _ := cmd.Flags().GetString("rpc-url")
-	var opts []rpc.ClientOption
-	if debug {
-		opts = append(opts, rpc.WithHTTPClient(&http.Client{
-			Transport: &debugTransport{base: http.DefaultTransport},
-		}))
-	}
-	rc, err := rpc.DialOptions(context.Background(), rpcURL, opts...)
+	rc, err := rpc.DialOptions(context.Background(), rpcURL,
+		rpc.WithHTTPClient(&http.Client{
+			Transport: &debugTransport{base: http.DefaultTransport, log: a.log},
+		}),
+	)
 	if err != nil {
 		return fmt.Errorf("connect to RPC: %w", err)
 	}
@@ -281,16 +289,13 @@ func signAndSend(cmd *cobra.Command, key *ecdsa.PrivateKey, tx *api.Transaction,
 			return fmt.Errorf("\nwait for receipt: %w", err)
 		}
 		fmt.Printf(" confirmed in block %s (status: %d)\n", receipt.BlockNumber, receipt.Status)
-		if debug && len(receipt.Logs) > 0 {
-			fmt.Fprintf(os.Stderr, "<< %d event(s) emitted:\n", len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				fmt.Fprintf(os.Stderr, "   [%d] address=%s\n", i, log.Address.Hex())
-				for j, topic := range log.Topics {
-					fmt.Fprintf(os.Stderr, "       topic[%d]=%s\n", j, topic.Hex())
-				}
-				if len(log.Data) > 0 {
-					fmt.Fprintf(os.Stderr, "       data=0x%s\n", hex.EncodeToString(log.Data))
-				}
+		for i, el := range receipt.Logs {
+			a.log.Debug("event", "index", i, "address", el.Address.Hex())
+			for j, topic := range el.Topics {
+				a.log.Debug("  topic", "index", j, "value", topic.Hex())
+			}
+			if len(el.Data) > 0 {
+				a.log.Debug("  data", "hex", "0x"+hex.EncodeToString(el.Data))
 			}
 		}
 	}
@@ -319,9 +324,10 @@ func waitForReceipt(ctx context.Context, ec *ethclient.Client, hash common.Hash)
 	}
 }
 
-// debugTransport wraps an http.RoundTripper and logs JSON-RPC requests and responses to stderr.
+// debugTransport wraps an http.RoundTripper and logs JSON-RPC requests and responses via slog.
 type debugTransport struct {
 	base http.RoundTripper
+	log  *slog.Logger
 }
 
 func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -331,9 +337,7 @@ func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Body = io.NopCloser(bytes.NewReader(reqBody))
 	}
 	if len(reqBody) > 0 {
-		var buf bytes.Buffer
-		json.Indent(&buf, reqBody, "", "  ")
-		fmt.Fprintf(os.Stderr, ">> RPC %s %s\n>> %s\n", req.Method, req.URL, buf.String())
+		d.log.Debug("rpc >>", "method", req.Method, "url", req.URL.String(), "body", string(reqBody))
 	}
 
 	resp, err := d.base.RoundTrip(req)
@@ -344,9 +348,7 @@ func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
 	if len(respBody) > 0 {
-		var buf bytes.Buffer
-		json.Indent(&buf, respBody, "", "  ")
-		fmt.Fprintf(os.Stderr, "<< %s\n", buf.String())
+		d.log.Debug("rpc <<", "status", resp.StatusCode, "body", string(respBody))
 	}
 	return resp, nil
 }

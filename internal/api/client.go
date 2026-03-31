@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 )
 
@@ -30,7 +30,7 @@ type Client struct {
 	BaseURL string
 	Token   string
 	HTTP    *http.Client
-	Debug   bool
+	Log     *slog.Logger
 }
 
 // NewClient creates a new API client for the given base URL.
@@ -58,13 +58,12 @@ func (c *Client) do(method, path string, query url.Values, body, result any) err
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	if c.Debug {
-		fmt.Fprintf(os.Stderr, ">> %s %s\n", method, u)
+	if c.Log != nil {
+		attrs := []any{"method", method, "url", u}
 		if bodyBytes != nil {
-			var buf bytes.Buffer
-			json.Indent(&buf, bodyBytes, "", "  ")
-			fmt.Fprintf(os.Stderr, ">> %s\n", buf.String())
+			attrs = append(attrs, "body", string(bodyBytes))
 		}
+		c.Log.Debug("http >>", attrs...)
 	}
 
 	req, err := http.NewRequest(method, u, bodyReader)
@@ -84,9 +83,18 @@ func (c *Client) do(method, path string, query url.Values, body, result any) err
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response: %w", err)
+	}
+
+	if c.Log != nil {
+		c.Log.Debug("http <<", "status", resp.StatusCode, "body", string(respBody))
+	}
+
 	if resp.StatusCode >= 400 {
 		var apiErr APIError
-		if err := json.NewDecoder(resp.Body).Decode(&apiErr); err != nil {
+		if err := json.Unmarshal(respBody, &apiErr); err != nil {
 			return fmt.Errorf("HTTP %d", resp.StatusCode)
 		}
 		if apiErr.Name == "unauthorized" && c.Token == "" {
@@ -96,7 +104,7 @@ func (c *Client) do(method, path string, query url.Values, body, result any) err
 	}
 
 	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
+		return json.Unmarshal(respBody, result)
 	}
 	return nil
 }
@@ -199,6 +207,7 @@ type Transaction struct {
 	ChainID  string         `json:"chainId"`
 	GasLimit string         `json:"gasLimit,omitempty"`
 	Nonce    string         `json:"nonce,omitempty"`
+	OrderID  string         `json:"orderId,omitempty"`
 	Approval *OrderApproval `json:"approval,omitempty"`
 }
 
