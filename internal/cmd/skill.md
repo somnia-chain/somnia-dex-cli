@@ -37,10 +37,10 @@ Authenticate via Sign-In with Ethereum and cache the JWT token to disk. Other co
 
 ### Orders (auth required)
 
-#### `dreamdex order place <symbol> --side buy|sell --amount <amount> [--type market|limit] [--price <price>] [--order-type normalOrder|fillOrKill|immediateOrCancel|postOnly] [--funding-source wallet|vault] [--wait] [--json]`
-Place a new order. `--side` and `--amount` are required. `--price` is required for limit orders. `--type` defaults to `market`. `--wait` blocks until the transaction is confirmed on-chain.
+#### `dreamdex order place <symbol> --side buy|sell --amount <amount> [--type market|limit] [--price <price>] [--order-type normalOrder|fillOrKill|immediateOrCancel|postOnly] [--funding-source wallet|vault] [--slippage <percent>] [--wait] [--json]`
+Place a new order. `--side` and `--amount` are required. `--price` is required for limit orders. `--type` defaults to `market`. Market orders are sent as limit IOC orders with an orderbook-derived price; `--slippage` controls the tolerance (default 0.5%). `--wait` blocks until the transaction is confirmed on-chain.
 
-If token approval is needed, the CLI will print instructions instead of submitting the order. Run `dreamdex vault approve` first, then retry.
+If token approval is needed, the CLI automatically submits the approval transaction before the order.
 
 #### `dreamdex order list [symbol] [--status open|closed|canceled|expired|rejected] [--json]`
 List orders. Optionally filter by symbol and/or status.
@@ -48,8 +48,8 @@ List orders. Optionally filter by symbol and/or status.
 #### `dreamdex order get <symbol> <order-id> [--json]`
 Get details for a single order.
 
-#### `dreamdex order cancel <symbol> <order-id> [--json]`
-Cancel an open order. This is an API-side cancellation (no transaction signing).
+#### `dreamdex order cancel <symbol> <order-id> [--wait] [--json]`
+Cancel an open order. Signs and sends a cancellation transaction on-chain.
 
 #### `dreamdex order reduce <symbol> <order-id> --quantity <new-remaining> [--wait] [--json]`
 Reduce an open order's remaining quantity. Signs and sends a transaction.
@@ -68,11 +68,28 @@ Deposit tokens into the vault.
 #### `dreamdex vault withdraw <symbol> --currency <code> --amount <amount> [--wait] [--json]`
 Withdraw tokens from the vault.
 
+### Live streaming (WebSocket)
+
+#### `dreamdex watch orderbook [symbol] [--json]`
+Stream live order book updates.
+
+#### `dreamdex watch trades [symbol] [--json]`
+Stream live trade executions.
+
+#### `dreamdex watch candles [symbol] [--interval 1m|5m|15m|1h|4h|1d] [--json]`
+Stream live OHLCV candle updates. Default interval is `1m`.
+
+#### `dreamdex watch order <order-id> [--json]`
+Watch a specific order for status changes.
+
+All `watch` commands support `--timeout <duration>` (e.g. `30s`, `5m`) to auto-terminate after a duration.
+
 ## Global flags
 
 | Flag | Description |
 |---|---|
 | `--json` | Output structured JSON instead of human-readable tables |
+| `--log-level` | Log verbosity: `debug`, `info`, `warn` (default), `error` |
 | `--api-url` | Override the API base URL |
 | `--rpc-url` | Override the Somnia RPC URL |
 
@@ -103,5 +120,11 @@ dreamdex order place SOMI:SOMUSD --side buy --amount 100 --funding-source vault 
 
 ```sh
 dreamdex order list SOMI:SOMUSD --status open --json
-dreamdex order cancel SOMI:SOMUSD <order-id>
+dreamdex order cancel SOMI:SOMUSD <order-id> --wait
+```
+
+### Stream live trades
+
+```sh
+dreamdex watch trades SOMI:SOMUSD --timeout 5m
 ```

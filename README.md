@@ -5,7 +5,7 @@ A non-custodial trading client for [DreamDEX](https://dreamdex.somnia.host) on t
 ## Install
 
 ```sh
-go install github.com/somnia-chain/somnia-dex-cli@latest
+go install github.com/somnia-chain/somnia-dex-cli/cmd/dreamdex@latest
 ```
 
 Or build from source:
@@ -13,7 +13,7 @@ Or build from source:
 ```sh
 git clone https://github.com/somnia-chain/somnia-dex-cli.git
 cd somnia-dex-cli
-go build -o dreamdex .
+go build -o dreamdex ./cmd/dreamdex/
 ```
 
 ## Configuration
@@ -73,6 +73,16 @@ dreamdex vault deposit SOMI:SOMUSD --currency SOM --amount 500
 dreamdex vault withdraw SOMI:SOMUSD --currency SOM --amount 200
 ```
 
+### Live streaming
+
+```sh
+dreamdex watch orderbook SOMI:SOMUSD          # stream order book updates
+dreamdex watch trades                          # stream trades for all markets
+dreamdex watch candles WBTC:SOMUSD --interval 5m
+dreamdex watch order <order-id>                # watch a specific order
+dreamdex watch trades --timeout 5m             # auto-terminate after 5 minutes
+```
+
 ### JSON output
 
 Pass `--json` to any command for structured JSON output, useful for scripting and LLM agents:
@@ -80,6 +90,15 @@ Pass `--json` to any command for structured JSON output, useful for scripting an
 ```sh
 dreamdex markets --json
 dreamdex order list --json
+```
+
+### Debug logging
+
+Pass `--log-level debug` to see all HTTP, RPC, and WebSocket traffic:
+
+```sh
+dreamdex order get SOMI:SOMUSD 123 --log-level debug
+dreamdex watch trades --log-level debug
 ```
 
 ### MCP server
