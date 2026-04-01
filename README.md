@@ -166,9 +166,21 @@ dreamdex mcp tools --json   # JSON schema for each tool
 
 ### LLM skill reference
 
+The `skill` command prints a structured command reference designed for LLM agents. It describes every command, flag, and common workflow in a format optimized for machine consumption.
+
 ```sh
-dreamdex skill   # print the LLM-oriented command reference
+dreamdex skill              # print the reference to stdout
+dreamdex skill | pbcopy     # copy to clipboard (macOS)
+dreamdex skill | xclip      # copy to clipboard (Linux)
 ```
+
+This is useful when you want to give an LLM context about the CLI without the MCP server. For example, you can paste the output into a chat session, or pipe it into a prompt:
+
+```sh
+echo "Place a limit buy for 100 SOMI at 0.15. $(dreamdex skill)" | llm
+```
+
+The same reference is also available as [SKILL.md](SKILL.md) in the repository.
 
 ## Architecture
 
