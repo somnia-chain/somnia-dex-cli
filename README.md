@@ -141,7 +141,13 @@ dreamdex mcp vscode   # VS Code
 
 #### Claude Code / OpenClaw
 
-Add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.json` (global):
+Via the CLI:
+
+```sh
+claude mcp add --transport stdio dreamdex -- dreamdex mcp start
+```
+
+Or add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.json` (global):
 
 ```json
 {
