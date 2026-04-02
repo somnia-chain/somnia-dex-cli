@@ -111,22 +111,10 @@ dreamdex watch trades --log-level debug
 
 ### MCP server
 
-The CLI includes an [MCP](https://modelcontextprotocol.io) server via [ophis](https://github.com/njayp/ophis), allowing LLM agents to interact with DreamDEX as tool calls.
-
-#### stdio (default)
-
-Runs the server over stdin/stdout, the standard transport for most MCP clients:
+The CLI includes an [MCP](https://modelcontextprotocol.io) server via [ophis](https://github.com/njayp/ophis), allowing LLM agents to interact with DreamDEX as tool calls. The MCP server is currently designed for local (stdio) usage only.
 
 ```sh
 dreamdex mcp start
-```
-
-#### HTTP (Streamable HTTP)
-
-Runs the server as an HTTP endpoint for remote or multi-client access:
-
-```sh
-dreamdex mcp stream --addr :8080
 ```
 
 #### IDE integration
@@ -144,7 +132,7 @@ dreamdex mcp vscode   # VS Code
 Via the CLI:
 
 ```sh
-claude mcp add --transport stdio dreamdex -- dreamdex mcp start
+claude mcp add --transport stdio -e DREAMDEX_PRIVATE_KEY=0x... dreamdex -- dreamdex mcp start
 ```
 
 Or add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.json` (global):
