@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -124,8 +125,12 @@ func isJSON(cmd *cobra.Command) bool {
 	return v
 }
 
-// printJSON writes v to stdout as indented JSON.
+// printJSON writes v to stdout as indented JSON. Nil slices emit [] not null.
 func printJSON(v any) error {
+	if rv := reflect.ValueOf(v); !rv.IsValid() || (rv.Kind() == reflect.Slice && rv.IsNil()) {
+		_, err := os.Stdout.WriteString("[]\n")
+		return err
+	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
