@@ -40,8 +40,13 @@ type app struct {
 // Execute runs the root command and exits on error.
 func Execute() {
 	a := &app{}
-	if err := a.rootCmd().Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	root := a.rootCmd()
+	if err := root.Execute(); err != nil {
+		if isJSON(root) {
+			json.NewEncoder(os.Stderr).Encode(map[string]string{"error": err.Error()})
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		}
 		os.Exit(1)
 	}
 }

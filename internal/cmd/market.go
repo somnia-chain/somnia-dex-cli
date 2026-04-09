@@ -88,7 +88,20 @@ func (a *app) orderbookCmd() *cobra.Command {
 				return err
 			}
 			if isJSON(cmd) {
-				return printJSON(books)
+				type bookWithMid struct {
+					api.OrderBook
+					Mid string `json:"mid,omitempty"`
+				}
+				out := make([]bookWithMid, len(books))
+				for i, b := range books {
+					out[i].OrderBook = b
+					if len(b.Asks) > 0 && len(b.Bids) > 0 {
+						ask, _ := strconv.ParseFloat(b.Asks[0].Price, 64)
+						bid, _ := strconv.ParseFloat(b.Bids[0].Price, 64)
+						out[i].Mid = strconv.FormatFloat((bid+ask)/2, 'f', -1, 64)
+					}
+				}
+				return printJSON(out)
 			}
 			for i, book := range books {
 				if i > 0 {
