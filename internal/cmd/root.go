@@ -93,6 +93,7 @@ Environment variables:
 		a.candlesCmd(),
 		a.loginCmd(),
 		a.orderCmd(),
+		a.stopOrderCmd(),
 		a.vaultCmd(),
 		a.watchCmd(),
 		skillCmd(),

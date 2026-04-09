@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"text/tabwriter"
 	"time"
 
@@ -98,7 +99,13 @@ func (a *app) orderbookCmd() *cobra.Command {
 				for j := len(book.Asks) - 1; j >= 0; j-- {
 					fmt.Fprintf(w, "  ask\t%s\t%s\n", book.Asks[j].Price, book.Asks[j].Quantity)
 				}
-				fmt.Fprintln(w, "  \t────\t────")
+				if len(book.Asks) > 0 && len(book.Bids) > 0 {
+					ask, _ := strconv.ParseFloat(book.Asks[0].Price, 64)
+					bid, _ := strconv.ParseFloat(book.Bids[0].Price, 64)
+					fmt.Fprintf(w, "  mid\t%s\t\n", strconv.FormatFloat((bid+ask)/2, 'f', -1, 64))
+				} else {
+					fmt.Fprintln(w, "  \t────\t────")
+				}
 				for _, b := range book.Bids {
 					fmt.Fprintf(w, "  bid\t%s\t%s\n", b.Price, b.Quantity)
 				}
