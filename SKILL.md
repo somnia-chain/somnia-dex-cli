@@ -9,6 +9,45 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 - All commands support `--json` for structured JSON output. Always use `--json` when you need to parse results programmatically.
 - Commands that accept an optional `[symbol]` default to all markets when omitted. Symbols look like `SOMI:SOMUSD`, `WETH:SOMUSD`, `WBTC:SOMUSD`.
 
+## Concepts
+
+### Markets
+
+A market is a trading pair (e.g. `SOMI:SOMUSD`) representing the base token traded against a quote currency. Each market has its own order book, tick size (minimum price increment), lot size (minimum quantity increment), and minimum order quantity. Use `dreamdex markets` to discover available pairs and their parameters before trading.
+
+### Orders
+
+Orders are instructions to buy or sell tokens at a given price. DreamDEX supports two core order types:
+
+- **Market orders** execute immediately at the best available price. They are implemented as limit IOC (immediate-or-cancel) orders priced from the current order book with a slippage tolerance (default 0.5%). Use these when you want to trade now and care more about speed than exact price.
+- **Limit orders** sit on the order book at a specified price and wait to be filled. Use these when you want to trade at a specific price or better. Sub-types control execution behaviour:
+  - `normalOrder` (default) - rests on the book until filled, cancelled, or expired.
+  - `fillOrKill` - must fill entirely in one match or the whole order is cancelled.
+  - `immediateOrCancel` - fills as much as possible immediately, cancels the remainder.
+  - `postOnly` - only accepted if it would rest on the book (no immediate fill); useful for earning maker rebates.
+
+All orders are settled on-chain on the Somnia blockchain. The CLI handles signing, token approval, and transaction submission automatically.
+
+### Stop orders
+
+Stop orders are conditional orders that activate only when the market price crosses a trigger threshold. They are useful for:
+
+- **Stop-loss** - automatically sell if the price drops to a certain level, limiting downside risk. Example: you hold SOMI and want to sell if it falls below $0.15 - place a stop sell with `--trigger-price 0.15 --trigger-operator lte`.
+- **Breakout entry** - automatically buy if the price rises above resistance. Example: buy SOMI if it breaks above $0.25 - place a stop buy with `--trigger-price 0.25 --trigger-operator gte`.
+
+Once triggered, the stop order becomes a regular order (market or limit) and is submitted on-chain. A stop order can end up in one of four states: `pending` (waiting for trigger), `triggered` (activated and submitted), `cancelled` (manually cancelled before triggering), or `failed` (triggered but the resulting order failed to submit).
+
+### Vault
+
+The vault is an on-chain escrow that holds tokens earmarked for trading. Depositing into the vault pre-funds your account so that subsequent orders can settle faster without requiring a fresh wallet transfer each time. The workflow is:
+
+1. **Approve** - grant the vault contract permission to transfer a token (one-time per token).
+2. **Deposit** - move tokens from your wallet into the vault.
+3. **Trade** - place orders with `--funding-source vault` to draw from your vault balance.
+4. **Withdraw** - move tokens back to your wallet when done.
+
+Using the vault is optional - orders default to `--funding-source wallet`, which transfers directly from your wallet for each trade.
+
 ## Commands
 
 ### Market data (read-only, no auth required)

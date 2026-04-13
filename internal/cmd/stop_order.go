@@ -14,6 +14,12 @@ func (a *app) stopOrderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop-order",
 		Short: "Manage stop orders",
+		Long: `Place, list, and cancel conditional stop orders.
+
+Stop orders activate only when the market price crosses a trigger threshold. Use
+them for stop-loss protection (sell if price drops below a level) or breakout
+entries (buy if price rises above resistance). Once triggered, the stop order
+becomes a regular market or limit order.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := cmd.Root().PersistentPreRunE(cmd, args); err != nil {
 				return err
@@ -34,6 +40,13 @@ func (a *app) stopOrderPlaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "place <symbol>",
 		Short: "Place a new stop order",
+		Long: `Place a conditional stop order that activates when the market price crosses the
+trigger threshold. Requires --trigger-price and --trigger-operator (gte for >=,
+lte for <=).
+
+Examples:
+  Stop-loss:      --side sell --trigger-operator lte --trigger-price 0.15
+  Breakout entry: --side buy  --trigger-operator gte --trigger-price 0.25`,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Place stop order",
@@ -90,6 +103,8 @@ func (a *app) stopOrderListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [symbol]",
 		Short: "List stop orders (all markets if no symbol given)",
+		Long: `List stop orders for one or all markets. Optionally filter by status: pending,
+triggered, cancelled, or failed.`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -127,6 +142,7 @@ func (a *app) stopOrderCancelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cancel <symbol> <id>",
 		Short: "Cancel a pending stop order",
+		Long:  "Cancel a pending stop order before it triggers. Signs and submits a cancellation transaction on-chain.",
 		Args:  cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle:       "Cancel stop order",

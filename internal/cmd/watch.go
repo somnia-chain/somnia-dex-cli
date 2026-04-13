@@ -20,6 +20,9 @@ func (a *app) watchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "watch",
 		Short: "Stream live market data via WebSocket",
+		Long: `Stream live market data over WebSocket. All watch commands maintain a persistent
+connection and print updates as they arrive. Use --timeout to auto-terminate
+after a duration (e.g. 30s, 5m).`,
 	}
 	cmd.PersistentFlags().Duration("timeout", 0, "auto-terminate after duration (e.g. 30s, 5m)")
 	cmd.AddCommand(
@@ -36,6 +39,7 @@ func (a *app) watchOrderbookCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "orderbook [symbol]",
 		Short: "Stream order book updates",
+		Long:  "Stream real-time order book updates showing bid/ask changes as they happen.",
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Watch orderbook",
@@ -57,6 +61,7 @@ func (a *app) watchTradesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "trades [symbol]",
 		Short: "Stream live trades",
+		Long:  "Stream trade executions in real time as they occur on the exchange.",
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Watch trades",
@@ -82,6 +87,7 @@ func (a *app) watchCandlesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "candles [symbol]",
 		Short: "Stream candle updates",
+		Long:  "Stream live OHLCV candlestick updates at a specified interval.",
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Watch candles",
@@ -115,6 +121,7 @@ func (a *app) watchOrderCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "order <id>",
 		Short: "Watch an order for status changes",
+		Long:  "Watch a specific order for status changes (fills, cancellations, etc.) in real time.",
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Watch order",

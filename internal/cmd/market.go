@@ -14,6 +14,8 @@ func (a *app) marketsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "markets",
 		Short: "List all trading pairs",
+		Long: `List all available trading pairs on DreamDEX. Shows each market's symbol,
+contract address, base/quote tokens, tick size, lot size, and minimum order quantity.`,
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "List markets",
@@ -33,6 +35,8 @@ func (a *app) currenciesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "currencies",
 		Short: "List all supported currencies",
+		Long: `List all tokens supported by DreamDEX. Shows each currency's code, name,
+decimal precision, and contract address.`,
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "List currencies",
@@ -52,6 +56,8 @@ func (a *app) orderbookCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "orderbook <symbol>",
 		Short: "Show order book",
+		Long: `Display the order book for a market, showing current bid and ask price levels
+with their quantities. Use --depth to limit the number of levels shown per side.`,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -75,6 +81,8 @@ func (a *app) tickerCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ticker [symbol]",
 		Short: "Show 24h market statistics (all markets if no symbol given)",
+		Long: `Show 24-hour OHLCV statistics for one or all markets, including open, high,
+low, close prices, and total trading volume.`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -113,6 +121,8 @@ func (a *app) tradesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "trades [symbol]",
 		Short: "Show recent trades (all markets if no symbol given)",
+		Long: `Show recently executed trades for one or all markets. Each trade includes the
+price, quantity, and side (buy/sell).`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -144,6 +154,8 @@ func (a *app) candlesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "candles <symbol>",
 		Short: "Show OHLCV candle data",
+		Long: `Show OHLCV candlestick data for a market at a specified time interval. Useful
+for analysing price trends over time.`,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",

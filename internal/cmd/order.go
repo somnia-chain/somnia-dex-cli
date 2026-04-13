@@ -18,6 +18,11 @@ func (a *app) orderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "order",
 		Short: "Manage orders",
+		Long: `Place, list, cancel, and reduce orders on DreamDEX.
+
+Orders are instructions to buy or sell tokens. Market orders execute immediately at
+the best available price. Limit orders rest on the order book at a specified price
+until filled, cancelled, or expired.`,
 	}
 	cmd.AddCommand(
 		a.orderPlaceCmd(),
@@ -34,6 +39,15 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "place <symbol>",
 		Short: "Place a new order",
+		Long: `Place a new order on DreamDEX. Market orders (default) execute immediately as
+limit IOC orders priced from the current order book with a slippage tolerance.
+Limit orders rest on the book at the specified price.
+
+Sub-types control execution: normalOrder (rests until filled), fillOrKill (fill
+entirely or cancel), immediateOrCancel (fill what you can, cancel the rest),
+postOnly (only accepted if it rests on the book).
+
+The CLI handles token approval, signing, and transaction submission automatically.`,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Place order",
@@ -132,6 +146,8 @@ func (a *app) orderListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [symbol]",
 		Short: "List orders (all markets if no symbol given)",
+		Long: `List orders for one or all markets. Optionally filter by status: open, closed,
+canceled, expired, or rejected.`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -166,6 +182,7 @@ func (a *app) orderGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <symbol> <id>",
 		Short: "Get order details",
+		Long:  "Show full details for a single order, including status, fill progress, and transaction hash.",
 		Args:  cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -200,6 +217,7 @@ func (a *app) orderCancelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cancel <symbol> <id>",
 		Short: "Cancel an open order",
+		Long:  "Cancel an open order. Signs and submits a cancellation transaction on-chain.",
 		Args:  cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle:       "Cancel order",
@@ -226,6 +244,8 @@ func (a *app) orderReduceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reduce <symbol> <id>",
 		Short: "Reduce an open order's remaining quantity",
+		Long: `Reduce an open order's remaining quantity without cancelling it. Signs and
+submits an amendment transaction on-chain.`,
 		Args:  cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Reduce order",

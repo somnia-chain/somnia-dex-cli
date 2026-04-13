@@ -14,6 +14,11 @@ func (a *app) vaultCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vault",
 		Short: "Manage vault balances",
+		Long: `Manage the on-chain vault, which holds tokens earmarked for trading.
+
+Depositing into the vault pre-funds your account so orders can settle without a
+fresh wallet transfer each time. Approve a token first, then deposit. Trade with
+--funding-source vault, and withdraw when done.`,
 	}
 	cmd.AddCommand(
 		a.vaultBalanceCmd(),
@@ -29,6 +34,8 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "balance <symbol>",
 		Short: "Show vault balances",
+		Long: `Show token balances held in the vault for a given market. Defaults to your
+wallet address if --wallet is not specified.`,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -57,6 +64,7 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 // vaultApproveCmd returns the "vault approve" command for token spending approval.
 func (a *app) vaultApproveCmd() *cobra.Command {
 	return a.vaultActionCmd("approve", "Approve token spending for vault deposits",
+		"Approve the vault contract to transfer a token on your behalf. Required once per token before the first deposit.",
 		func(c *api.Client, symbol string, req *api.VaultActionRequest) (*api.Transaction, error) {
 			return c.PrepareApproval(symbol, req)
 		})
@@ -65,6 +73,7 @@ func (a *app) vaultApproveCmd() *cobra.Command {
 // vaultDepositCmd returns the "vault deposit" command for depositing tokens.
 func (a *app) vaultDepositCmd() *cobra.Command {
 	return a.vaultActionCmd("deposit", "Deposit tokens into vault",
+		"Deposit tokens from your wallet into the vault. Tokens must be approved first via 'vault approve'.",
 		func(c *api.Client, symbol string, req *api.VaultActionRequest) (*api.Transaction, error) {
 			return c.PrepareDeposit(symbol, req)
 		})
@@ -73,6 +82,7 @@ func (a *app) vaultDepositCmd() *cobra.Command {
 // vaultWithdrawCmd returns the "vault withdraw" command for withdrawing tokens.
 func (a *app) vaultWithdrawCmd() *cobra.Command {
 	return a.vaultActionCmd("withdraw", "Withdraw tokens from vault",
+		"Withdraw tokens from the vault back to your wallet.",
 		func(c *api.Client, symbol string, req *api.VaultActionRequest) (*api.Transaction, error) {
 			return c.PrepareWithdraw(symbol, req)
 		})
@@ -82,10 +92,11 @@ func (a *app) vaultWithdrawCmd() *cobra.Command {
 type prepareFunc func(*api.Client, string, *api.VaultActionRequest) (*api.Transaction, error)
 
 // vaultActionCmd is a shared constructor for vault approve, deposit, and withdraw commands.
-func (a *app) vaultActionCmd(use, short string, prepare prepareFunc) *cobra.Command {
+func (a *app) vaultActionCmd(use, short, long string, prepare prepareFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use + " <symbol>",
 		Short: short,
+		Long:  long,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: short,
