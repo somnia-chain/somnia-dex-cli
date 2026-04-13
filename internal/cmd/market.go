@@ -142,29 +142,21 @@ func (a *app) tradesCmd() *cobra.Command {
 // candlesCmd returns the "candles" command, which shows OHLCV candle data.
 func (a *app) candlesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "candles [symbol]",
-		Short: "Show OHLCV candle data (all markets if no symbol given)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:   "candles <symbol>",
+		Short: "Show OHLCV candle data",
+		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "Get OHLCV candles",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			symbols, err := a.resolveSymbols(args)
+			interval, _ := cmd.Flags().GetString("interval")
+			limit, _ := cmd.Flags().GetInt("limit")
+			candles, err := a.client.GetCandles(args[0], interval, limit)
 			if err != nil {
 				return err
 			}
-			interval, _ := cmd.Flags().GetString("interval")
-			limit, _ := cmd.Flags().GetInt("limit")
-			var all []api.Candle
-			for _, sym := range symbols {
-				candles, err := a.client.GetCandles(sym, interval, limit)
-				if err != nil {
-					return err
-				}
-				all = append(all, candles...)
-			}
-			return printResult(cmd, api.Candles{Candles: all})
+			return printResult(cmd, api.Candles{Candles: candles})
 		},
 	}
 	cmd.Flags().String("interval", "1h", "candle interval (1m, 5m, 15m, 1h, 4h, 1d)")

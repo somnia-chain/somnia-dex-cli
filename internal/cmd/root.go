@@ -91,7 +91,10 @@ Environment variables:
 		a.watchCmd(),
 		skillCmd(),
 		ophis.Command(&ophis.Config{
-			DefaultEnv: map[string]string{"PATH": os.Getenv("PATH")},
+			DefaultEnv: map[string]string{
+				"PATH":          os.Getenv("PATH"),
+				"DREAMDEX_JSON": "1",
+			},
 		}),
 	)
 
@@ -106,10 +109,12 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// isJSON returns true when the --json flag is set.
+// isJSON returns true when the --json flag is set or when running as an MCP subprocess.
 func isJSON(cmd *cobra.Command) bool {
-	v, _ := cmd.Flags().GetBool("json")
-	return v
+	if v, _ := cmd.Flags().GetBool("json"); v {
+		return true
+	}
+	return os.Getenv("DREAMDEX_JSON") == "1"
 }
 
 // printJSON writes v to stdout as indented JSON.

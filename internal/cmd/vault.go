@@ -27,9 +27,9 @@ func (a *app) vaultCmd() *cobra.Command {
 // vaultBalanceCmd returns the "vault balance" command, which shows vault balances.
 func (a *app) vaultBalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "balance [symbol]",
-		Short: "Show vault balances (all markets if no symbol given)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:   "balance <symbol>",
+		Short: "Show vault balances",
+		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "Get vault balances",
@@ -43,19 +43,11 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 				wallet = a.eth.Address().Hex()
 			}
 
-			symbols, err := a.resolveSymbols(args)
+			balances, err := a.client.GetVaultBalance(args[0], wallet)
 			if err != nil {
 				return err
 			}
-			var all []api.VaultBalance
-			for _, sym := range symbols {
-				balances, err := a.client.GetVaultBalance(sym, wallet)
-				if err != nil {
-					return err
-				}
-				all = append(all, balances...)
-			}
-			return printResult(cmd, api.VaultBalances{Balances: all})
+			return printResult(cmd, api.VaultBalances{Balances: balances})
 		},
 	}
 	cmd.Flags().String("wallet", "", "wallet address (derived from DREAMDEX_PRIVATE_KEY if unset)")
