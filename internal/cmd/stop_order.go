@@ -2,12 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"slices"
-	"text/tabwriter"
-	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -18,6 +14,12 @@ func (a *app) stopOrderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop-order",
 		Short: "Manage stop orders",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmd.Root().PersistentPreRunE(cmd, args); err != nil {
+				return err
+			}
+			return a.requireAuth(cmd)
+		},
 	}
 	cmd.AddCommand(
 		a.stopOrderPlaceCmd(),
@@ -37,12 +39,6 @@ func (a *app) stopOrderPlaceCmd() *cobra.Command {
 			ophis.AnnotationTitle: "Place stop order",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := privateKey()
-			if err != nil {
-				return err
-			}
-			addr := crypto.PubkeyToAddress(key.PublicKey)
-
 			side, _ := cmd.Flags().GetString("side")
 			typ, _ := cmd.Flags().GetString("type")
 			amount, _ := cmd.Flags().GetString("amount")
@@ -60,7 +56,7 @@ func (a *app) stopOrderPlaceCmd() *cobra.Command {
 				Amount:          amount,
 				TriggerPrice:    triggerPrice,
 				TriggerOperator: triggerOp,
-				WalletAddress:   addr.Hex(),
+				WalletAddress:   a.eth.Address().Hex(),
 				Price:           price,
 			})
 			if err != nil {
@@ -71,7 +67,7 @@ func (a *app) stopOrderPlaceCmd() *cobra.Command {
 				fmt.Printf("Stop Order ID: %s\n", tx.OrderID)
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return a.signAndSend(cmd, key, tx, wait, "Stop order")
+			return a.eth.SignAndSend(tx, wait, "Stop order")
 		},
 	}
 	f := cmd.Flags()
@@ -116,17 +112,10 @@ func (a *app) stopOrderListCmd() *cobra.Command {
 			slices.SortFunc(all, func(a, b api.StopOrder) int {
 				return int(a.CreatedAt - b.CreatedAt)
 			})
-			if isJSON(cmd) {
-				return printJSON(all)
+			if all == nil {
+				all = []api.StopOrder{}
 			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "SYMBOL\tID\tCREATED\tSTATUS\tTYPE\tSIDE\tTRIGGER\tOPERATOR")
-			for _, o := range all {
-				created := time.UnixMilli(o.CreatedAt).Format("2006-01-02 15:04:05")
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					o.Symbol, o.ID, created, o.Status, o.Type, o.Side, o.TriggerPrice, o.TriggerOperator)
-			}
-			return w.Flush()
+			return printResult(cmd, api.StopOrders{StopOrders: all})
 		},
 	}
 	cmd.Flags().String("status", "", "filter: pending, triggered, cancelled, failed")
@@ -144,16 +133,12 @@ func (a *app) stopOrderCancelCmd() *cobra.Command {
 			ophis.AnnotationDestructive: "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := privateKey()
-			if err != nil {
-				return err
-			}
 			tx, err := a.client.CancelStopOrder(args[0], args[1])
 			if err != nil {
 				return err
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return a.signAndSend(cmd, key, tx, wait, "Stop order cancel")
+			return a.eth.SignAndSend(tx, wait, "Stop order cancel")
 		},
 	}
 	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")

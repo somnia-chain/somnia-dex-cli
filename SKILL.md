@@ -4,7 +4,8 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 
 ## Prerequisites
 
-- `DREAMDEX_PRIVATE_KEY` must be set as a hex-encoded Ethereum private key (with or without `0x` prefix). Commands that require signing will auto-authenticate using this key.
+- Keys are stored in an encrypted keystore (`~/.config/dreamdex/keystore/`). Run `dreamdex login` to import a key.
+- For headless/MCP use, set `DREAMDEX_PRIVATE_KEY` (hex-encoded, with or without `0x` prefix) to bypass the keystore, or set `DREAMDEX_PASSWORD` to unlock it non-interactively.
 - All commands support `--json` for structured JSON output. Always use `--json` when you need to parse results programmatically.
 - Commands that accept an optional `[symbol]` default to all markets when omitted. Symbols look like `SOMI:SOMUSD`, `WETH:SOMUSD`, `WBTC:SOMUSD`.
 
@@ -33,7 +34,7 @@ Show OHLCV candle data. Default interval is `1h`, default limit is 20.
 ### Authentication
 
 #### `dreamdex login`
-Authenticate via Sign-In with Ethereum and cache the JWT token to disk. Other commands auto-authenticate in memory when `DREAMDEX_PRIVATE_KEY` is set, so explicit login is rarely needed.
+Import a private key into the encrypted keystore and authenticate. On first run with `DREAMDEX_PRIVATE_KEY` set, prompts for a passphrase and stores the encrypted key. Subsequent runs authenticate using the keystore.
 
 ### Orders (auth required)
 
@@ -54,10 +55,21 @@ Cancel an open order. Signs and sends a cancellation transaction on-chain.
 #### `dreamdex order reduce <symbol> <order-id> --quantity <new-remaining> [--wait] [--json]`
 Reduce an open order's remaining quantity. Signs and sends a transaction.
 
+### Stop orders (auth required)
+
+#### `dreamdex stop-order place <symbol> --side buy|sell --amount <amount> --trigger-price <price> --trigger-operator gte|lte [--type market|limit] [--price <price>] [--wait] [--json]`
+Place a conditional stop order. `--side`, `--amount`, `--trigger-price`, and `--trigger-operator` are required. `--type` defaults to `market`. `--price` is required for limit stop orders. The order activates when the market price crosses the trigger.
+
+#### `dreamdex stop-order list [symbol] [--status pending|triggered|cancelled|failed] [--json]`
+List stop orders. Optionally filter by symbol and/or status.
+
+#### `dreamdex stop-order cancel <symbol> <id> [--wait] [--json]`
+Cancel a pending stop order. Signs and sends a cancellation transaction on-chain.
+
 ### Vault (auth required)
 
 #### `dreamdex vault balance [symbol] [--wallet <address>] [--json]`
-Show vault balances. If `--wallet` is omitted, derives the address from `DREAMDEX_PRIVATE_KEY`.
+Show vault balances. If `--wallet` is omitted, derives the address from the keystore or `DREAMDEX_PRIVATE_KEY`.
 
 #### `dreamdex vault approve <symbol> --currency <code> --amount <amount> [--wait] [--json]`
 Approve token spending for vault deposits. Required before the first deposit of a token.

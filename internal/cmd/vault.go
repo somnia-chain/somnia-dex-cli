@@ -2,11 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -40,11 +37,10 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wallet, _ := cmd.Flags().GetString("wallet")
 			if wallet == "" {
-				key, err := privateKey()
-				if err != nil {
-					return fmt.Errorf("set --wallet or DREAMDEX_PRIVATE_KEY")
+				if err := a.requireEth(cmd); err != nil {
+					return fmt.Errorf("set --wallet or configure a key via: dreamdex login")
 				}
-				wallet = crypto.PubkeyToAddress(key.PublicKey).Hex()
+				wallet = a.eth.Address().Hex()
 			}
 
 			symbols, err := a.resolveSymbols(args)
@@ -59,16 +55,7 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 				}
 				all = append(all, balances...)
 			}
-			if isJSON(cmd) {
-				return printJSON(all)
-			}
-
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "CURRENCY\tBALANCE")
-			for _, b := range all {
-				fmt.Fprintf(w, "%s\t%s\n", b.Currency, b.Amount)
-			}
-			return w.Flush()
+			return printResult(cmd, api.VaultBalances{Balances: all})
 		},
 	}
 	cmd.Flags().String("wallet", "", "wallet address (derived from DREAMDEX_PRIVATE_KEY if unset)")
@@ -112,16 +99,14 @@ func (a *app) vaultActionCmd(use, short string, prepare prepareFunc) *cobra.Comm
 			ophis.AnnotationTitle: short,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := privateKey()
-			if err != nil {
+			if err := a.requireEth(cmd); err != nil {
 				return err
 			}
-			addr := crypto.PubkeyToAddress(key.PublicKey)
 			currency, _ := cmd.Flags().GetString("currency")
 			amount, _ := cmd.Flags().GetString("amount")
 
 			tx, err := prepare(a.client, args[0], &api.VaultActionRequest{
-				WalletAddress: addr.Hex(),
+				WalletAddress: a.eth.Address().Hex(),
 				Currency:      currency,
 				Amount:        amount,
 			})
@@ -131,7 +116,7 @@ func (a *app) vaultActionCmd(use, short string, prepare prepareFunc) *cobra.Comm
 
 			wait, _ := cmd.Flags().GetBool("wait")
 			label := strings.Title(use) //nolint:staticcheck
-			return a.signAndSend(cmd, key, tx, wait, label)
+			return a.eth.SignAndSend(tx, wait, label)
 		},
 	}
 	cmd.Flags().String("currency", "", "currency code, e.g. SOM or USDC (required)")

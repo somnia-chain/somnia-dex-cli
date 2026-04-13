@@ -26,24 +26,36 @@ go build -o dreamdex ./cmd/dreamdex/
 
 ## Configuration
 
-All configuration is via environment variables:
-
 | Variable | Description | Default |
 |---|---|---|
-| `DREAMDEX_PRIVATE_KEY` | Hex-encoded private key (`0x...` or bare hex) | — |
 | `DREAMDEX_API_URL` | API base URL | `https://stg.dreamdex.somnia.host` |
 | `DREAMDEX_RPC_URL` | Somnia JSON-RPC URL | `https://dream-rpc.somnia.network` |
+| `DREAMDEX_PRIVATE_KEY` | Hex-encoded private key (headless/CI fallback) | — |
+| `DREAMDEX_PASSWORD` | Keystore passphrase (headless/CI fallback) | — |
 
-## Authentication
+## Key management
 
-Commands that require authentication will automatically sign in using `DREAMDEX_PRIVATE_KEY` if set. To explicitly log in and cache a token:
+Private keys are stored in an encrypted keystore at `~/.config/dreamdex/keystore/` using the [Web3 Secret Storage](https://ethereum.org/en/developers/docs/data-structures-and-encoding/web3-secret-storage/) format (the same format used by geth).
+
+### First-time setup
+
+Import your private key into the keystore:
 
 ```sh
 export DREAMDEX_PRIVATE_KEY=0x...
 dreamdex login
 ```
 
-The token is cached at `~/.config/dreamdex/token.json` and reused until it expires. Only `login` writes this file; other commands authenticate in-memory.
+This prompts for a passphrase, encrypts the key, and stores it. You can then unset `DREAMDEX_PRIVATE_KEY` -- subsequent commands will read from the keystore and prompt for your passphrase.
+
+### Headless / MCP usage
+
+For CI, scripts, or MCP servers where no terminal is available, set the env vars directly:
+
+```sh
+DREAMDEX_PRIVATE_KEY=0x...   # bypasses keystore entirely
+DREAMDEX_PASSWORD=...        # unlocks keystore without a prompt
+```
 
 ## Usage
 
@@ -69,6 +81,17 @@ dreamdex order list SOMI:SOMUSD --status open
 dreamdex order get SOMI:SOMUSD <order-id>
 dreamdex order cancel SOMI:SOMUSD <order-id>
 dreamdex order reduce SOMI:SOMUSD <order-id> --quantity 25
+```
+
+### Stop orders
+
+```sh
+dreamdex stop-order place SOMI:SOMUSD --side sell --amount 1 --trigger-price 0.17 --trigger-operator lte
+dreamdex stop-order place SOMI:SOMUSD --side buy --type limit --amount 50 --price 0.20 \
+  --trigger-price 0.19 --trigger-operator gte
+dreamdex stop-order list                  # all markets
+dreamdex stop-order list SOMI:SOMUSD --status pending
+dreamdex stop-order cancel SOMI:SOMUSD <id>
 ```
 
 ### Vault
@@ -132,7 +155,9 @@ dreamdex mcp vscode   # VS Code
 Via the CLI:
 
 ```sh
-claude mcp add --transport stdio -e DREAMDEX_PRIVATE_KEY=0x... dreamdex -- dreamdex mcp start
+claude mcp add --transport stdio \
+  -e DREAMDEX_PRIVATE_KEY=0x... \
+  dreamdex -- dreamdex mcp start
 ```
 
 Or add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.json` (global):
@@ -150,6 +175,8 @@ Or add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.j
   }
 }
 ```
+
+If you prefer to use the encrypted keystore instead of a raw key, set `DREAMDEX_PASSWORD` in place of `DREAMDEX_PRIVATE_KEY` (after running `dreamdex login` to import the key).
 
 #### Inspect available tools
 

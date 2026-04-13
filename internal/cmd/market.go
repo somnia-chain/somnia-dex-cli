@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"text/tabwriter"
 	"time"
 
 	"github.com/njayp/ophis"
@@ -26,16 +23,7 @@ func (a *app) marketsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if isJSON(cmd) {
-				return printJSON(markets)
-			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "SYMBOL\tCONTRACT\tBASE\tQUOTE\tTICK SIZE\tLOT SIZE\tMIN QTY")
-			for _, m := range markets {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					m.Symbol, m.Contract, m.Base, m.Quote, m.TickSize, m.LotSize, m.MinQuantity)
-			}
-			return w.Flush()
+			return printResult(cmd, api.Markets{Markets: markets})
 		},
 	}
 }
@@ -54,15 +42,7 @@ func (a *app) currenciesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if isJSON(cmd) {
-				return printJSON(currencies)
-			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "CODE\tNAME\tDECIMALS\tADDRESS")
-			for _, c := range currencies {
-				fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", c.Code, c.Name, c.Decimals, c.ID)
-			}
-			return w.Flush()
+			return printResult(cmd, api.Currencies{Currencies: currencies})
 		},
 	}
 }
@@ -70,61 +50,20 @@ func (a *app) currenciesCmd() *cobra.Command {
 // orderbookCmd returns the "orderbook" command, which shows bids and asks for one or all markets.
 func (a *app) orderbookCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "orderbook [symbol]",
-		Short: "Show order book (all markets if no symbol given)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:   "orderbook <symbol>",
+		Short: "Show order book",
+		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "Show order book",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			symbols, err := a.resolveSymbols(args)
-			if err != nil {
-				return err
-			}
 			depth, _ := cmd.Flags().GetInt("depth")
-			books, err := a.client.GetOrderBooks(symbols, depth)
+			books, err := a.client.GetOrderBooks(args, depth)
 			if err != nil {
 				return err
 			}
-			if isJSON(cmd) {
-				type bookWithMid struct {
-					api.OrderBook
-					Mid string `json:"mid,omitempty"`
-				}
-				out := make([]bookWithMid, len(books))
-				for i, b := range books {
-					out[i].OrderBook = b
-					if len(b.Asks) > 0 && len(b.Bids) > 0 {
-						ask, _ := strconv.ParseFloat(b.Asks[0].Price, 64)
-						bid, _ := strconv.ParseFloat(b.Bids[0].Price, 64)
-						out[i].Mid = strconv.FormatFloat((bid+ask)/2, 'f', -1, 64)
-					}
-				}
-				return printJSON(out)
-			}
-			for i, book := range books {
-				if i > 0 {
-					fmt.Println()
-				}
-				fmt.Println(book.Symbol)
-				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-				for j := len(book.Asks) - 1; j >= 0; j-- {
-					fmt.Fprintf(w, "  ask\t%s\t%s\n", book.Asks[j].Price, book.Asks[j].Quantity)
-				}
-				if len(book.Asks) > 0 && len(book.Bids) > 0 {
-					ask, _ := strconv.ParseFloat(book.Asks[0].Price, 64)
-					bid, _ := strconv.ParseFloat(book.Bids[0].Price, 64)
-					fmt.Fprintf(w, "  mid\t%s\t\n", strconv.FormatFloat((bid+ask)/2, 'f', -1, 64))
-				} else {
-					fmt.Fprintln(w, "  \t────\t────")
-				}
-				for _, b := range book.Bids {
-					fmt.Fprintf(w, "  bid\t%s\t%s\n", b.Price, b.Quantity)
-				}
-				w.Flush()
-			}
-			return nil
+			return printResult(cmd, api.OrderBooks{OrderBooks: books})
 		},
 	}
 	cmd.Flags().Int("depth", 0, "number of price levels to show")
@@ -155,7 +94,9 @@ func (a *app) tickerCmd() *cobra.Command {
 				all = append(all, tickers...)
 			}
 			if isJSON(cmd) {
-				return printJSON(all)
+				return printJSON(struct {
+					Tickers []api.Ticker `json:"tickers"`
+				}{all})
 			}
 			for _, t := range all {
 				fmt.Printf("%s  O:%s  H:%s  L:%s  C:%s  V:%s  %s\n",
@@ -191,18 +132,7 @@ func (a *app) tradesCmd() *cobra.Command {
 				}
 				all = append(all, trades...)
 			}
-			if isJSON(cmd) {
-				return printJSON(all)
-			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "SYMBOL\tTIME\tSIDE\tPRICE\tAMOUNT\tCOST")
-			for _, t := range all {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-					t.Symbol,
-					time.UnixMilli(t.Timestamp).Format(time.RFC3339),
-					t.Side, t.Price, t.Amount, t.Cost)
-			}
-			return w.Flush()
+			return printResult(cmd, api.Trades{Trades: all})
 		},
 	}
 	cmd.Flags().Int("limit", 20, "max trades to return")
@@ -234,17 +164,7 @@ func (a *app) candlesCmd() *cobra.Command {
 				}
 				all = append(all, candles...)
 			}
-			if isJSON(cmd) {
-				return printJSON(all)
-			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "TIME\tOPEN\tHIGH\tLOW\tCLOSE\tVOLUME")
-			for _, c := range all {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-					time.UnixMilli(c.Timestamp).Format(time.RFC3339),
-					c.Open, c.High, c.Low, c.Close, c.Volume)
-			}
-			return w.Flush()
+			return printResult(cmd, api.Candles{Candles: all})
 		},
 	}
 	cmd.Flags().String("interval", "1h", "candle interval (1m, 5m, 15m, 1h, 4h, 1d)")

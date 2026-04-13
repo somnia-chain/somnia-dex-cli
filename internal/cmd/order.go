@@ -3,14 +3,11 @@ package cmd
 import (
 	"fmt"
 	"math"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -42,11 +39,9 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 			ophis.AnnotationTitle: "Place order",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := privateKey()
-			if err != nil {
+			if err := a.requireEth(cmd); err != nil {
 				return err
 			}
-			addr := crypto.PubkeyToAddress(key.PublicKey)
 
 			side, _ := cmd.Flags().GetString("side")
 			typ, _ := cmd.Flags().GetString("type")
@@ -73,11 +68,12 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 				}
 			}
 
+			wallet := a.eth.Address().Hex()
 			tx, err := a.client.PrepareOrder(args[0], &api.PrepareOrderRequest{
 				Type:          typ,
 				Side:          side,
 				Amount:        amount,
-				WalletAddress: addr.Hex(),
+				WalletAddress: wallet,
 				Price:         price,
 				OrderType:     orderType,
 				FundingSource: fundingSource,
@@ -97,7 +93,7 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 					}
 				}
 				approveTx, err := a.client.PrepareApproval(args[0], &api.VaultActionRequest{
-					WalletAddress: addr.Hex(),
+					WalletAddress: wallet,
 					Currency:      code,
 					Amount:        tx.Approval.Amount,
 				})
@@ -105,7 +101,7 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 					return fmt.Errorf("prepare approval: %w", err)
 				}
 				approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
-				if err := a.signAndSend(cmd, key, approveTx, true, approveLabel); err != nil {
+				if err := a.eth.SignAndSend(approveTx, true, approveLabel); err != nil {
 					return fmt.Errorf("token approval: %w", err)
 				}
 			}
@@ -114,7 +110,7 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 				fmt.Printf("Order ID: %s\n", tx.OrderID)
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return a.signAndSend(cmd, key, tx, wait, "Order")
+			return a.eth.SignAndSend(tx, wait, "Order")
 		},
 	}
 	f := cmd.Flags()
@@ -158,17 +154,7 @@ func (a *app) orderListCmd() *cobra.Command {
 			slices.SortFunc(all, func(a, b api.Order) int {
 				return int(a.CreatedAt - b.CreatedAt)
 			})
-			if isJSON(cmd) {
-				return printJSON(all)
-			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "SYMBOL\tID\tCREATED\tSTATUS\tTYPE\tSIDE\tPRICE\tAMOUNT\tFILLED\tREMAINING")
-			for _, o := range all {
-				created := time.UnixMilli(o.CreatedAt).Format("2006-01-02 15:04:05")
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					o.Symbol, o.ID, created, o.Status, o.Type, o.Side, o.Price, o.Amount, o.Filled, o.Remaining)
-			}
-			return w.Flush()
+			return printResult(cmd, api.Orders{Orders: all})
 		},
 	}
 	cmd.Flags().String("status", "", "filter: open, closed, canceled, expired, rejected")
@@ -220,8 +206,7 @@ func (a *app) orderCancelCmd() *cobra.Command {
 			ophis.AnnotationDestructive: "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := privateKey()
-			if err != nil {
+			if err := a.requireEth(cmd); err != nil {
 				return err
 			}
 			tx, err := a.client.CancelOrder(args[0], args[1])
@@ -229,7 +214,7 @@ func (a *app) orderCancelCmd() *cobra.Command {
 				return err
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return a.signAndSend(cmd, key, tx, wait, "Cancel")
+			return a.eth.SignAndSend(tx, wait, "Cancel")
 		},
 	}
 	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
@@ -246,8 +231,7 @@ func (a *app) orderReduceCmd() *cobra.Command {
 			ophis.AnnotationTitle: "Reduce order",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := privateKey()
-			if err != nil {
+			if err := a.requireEth(cmd); err != nil {
 				return err
 			}
 			qty, _ := cmd.Flags().GetString("quantity")
@@ -256,7 +240,7 @@ func (a *app) orderReduceCmd() *cobra.Command {
 				return err
 			}
 			wait, _ := cmd.Flags().GetBool("wait")
-			return a.signAndSend(cmd, key, tx, wait, "Order reduce")
+			return a.eth.SignAndSend(tx, wait, "Order reduce")
 		},
 	}
 	cmd.Flags().String("quantity", "", "new remaining quantity (required)")
