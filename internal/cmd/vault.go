@@ -117,14 +117,12 @@ func (a *app) vaultActionCmd(use, short, long string, prepare prepareFunc) *cobr
 				return err
 			}
 
-			wait, _ := cmd.Flags().GetBool("wait")
 			label := strings.Title(use) //nolint:staticcheck
-			return a.eth.SignAndSend(tx, wait, label)
+			return a.eth.SignAndSend(tx, label)
 		},
 	}
 	cmd.Flags().String("currency", "", "currency code, e.g. SOM or USDC (required)")
 	cmd.Flags().String("amount", "", "amount (required)")
-	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
 	cmd.MarkFlagRequired("currency")
 	cmd.MarkFlagRequired("amount")
 	return cmd

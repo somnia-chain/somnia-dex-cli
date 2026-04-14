@@ -76,11 +76,7 @@ Examples:
 				return fmt.Errorf("prepare stop order: %w", err)
 			}
 
-			if tx.OrderID != "" {
-				fmt.Printf("Stop Order ID: %s\n", tx.OrderID)
-			}
-			wait, _ := cmd.Flags().GetBool("wait")
-			return a.eth.SignAndSend(tx, wait, "Stop order")
+			return a.eth.SignAndSend(tx, "Stop order")
 		},
 	}
 	f := cmd.Flags()
@@ -90,7 +86,6 @@ Examples:
 	f.String("trigger-price", "", "price that activates the order (required)")
 	f.String("trigger-operator", "", "gte or lte (required)")
 	f.String("price", "", "limit price (required for limit type)")
-	f.Bool("wait", false, "wait for transaction confirmation")
 	cmd.MarkFlagRequired("side")
 	cmd.MarkFlagRequired("amount")
 	cmd.MarkFlagRequired("trigger-price")
@@ -153,10 +148,8 @@ func (a *app) stopOrderCancelCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			wait, _ := cmd.Flags().GetBool("wait")
-			return a.eth.SignAndSend(tx, wait, "Stop order cancel")
+			return a.eth.SignAndSend(tx, "Stop order cancel")
 		},
 	}
-	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
 	return cmd
 }

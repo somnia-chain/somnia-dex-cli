@@ -115,16 +115,12 @@ The CLI handles token approval, signing, and transaction submission automaticall
 					return fmt.Errorf("prepare approval: %w", err)
 				}
 				approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
-				if err := a.eth.SignAndSend(approveTx, true, approveLabel); err != nil {
+				if err := a.eth.SignAndSend(approveTx, approveLabel); err != nil {
 					return fmt.Errorf("token approval: %w", err)
 				}
 			}
 
-			if tx.OrderID != "" {
-				fmt.Printf("Order ID: %s\n", tx.OrderID)
-			}
-			wait, _ := cmd.Flags().GetBool("wait")
-			return a.eth.SignAndSend(tx, wait, "Order")
+			return a.eth.SignAndSend(tx, "Order")
 		},
 	}
 	f := cmd.Flags()
@@ -135,7 +131,6 @@ The CLI handles token approval, signing, and transaction submission automaticall
 	f.String("order-type", "", "normalOrder, fillOrKill, immediateOrCancel, postOnly")
 	f.String("funding-source", "", "wallet or vault")
 	f.Float64("slippage", 0.5, "slippage tolerance for market orders (percent)")
-	f.Bool("wait", false, "wait for transaction confirmation")
 	cmd.MarkFlagRequired("side")
 	cmd.MarkFlagRequired("amount")
 	return cmd
@@ -232,11 +227,9 @@ func (a *app) orderCancelCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			wait, _ := cmd.Flags().GetBool("wait")
-			return a.eth.SignAndSend(tx, wait, "Cancel")
+			return a.eth.SignAndSend(tx, "Cancel")
 		},
 	}
-	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
 	return cmd
 }
 
@@ -260,12 +253,10 @@ submits an amendment transaction on-chain.`,
 			if err != nil {
 				return err
 			}
-			wait, _ := cmd.Flags().GetBool("wait")
-			return a.eth.SignAndSend(tx, wait, "Order reduce")
+			return a.eth.SignAndSend(tx, "Order reduce")
 		},
 	}
 	cmd.Flags().String("quantity", "", "new remaining quantity (required)")
-	cmd.Flags().Bool("wait", false, "wait for transaction confirmation")
 	cmd.MarkFlagRequired("quantity")
 	return cmd
 }

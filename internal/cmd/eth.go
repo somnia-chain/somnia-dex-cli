@@ -66,7 +66,7 @@ func (e *ethClient) SignPersonal(message string) (string, error) {
 }
 
 // SignAndSend signs an unsigned transaction from the API and broadcasts it via RPC.
-func (e *ethClient) SignAndSend(tx *api.Transaction, wait bool, label string) error {
+func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 	e.log.Debug("unsigned tx", "to", tx.To, "value", tx.Value, "chainId", tx.ChainID, "data", tx.Data)
 
 	rc, err := rpc.DialOptions(context.Background(), e.rpcURL,
@@ -136,22 +136,22 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, wait bool, label string) er
 	}
 
 	fmt.Printf("%s sent: %s\n", label, signed.Hash().Hex())
-
-	if wait {
-		fmt.Printf("Waiting for %s confirmation...", strings.ToLower(label))
-		receipt, err := waitForReceipt(ctx, ec, signed.Hash())
-		if err != nil {
-			return fmt.Errorf("\nwait for receipt: %w", err)
+	fmt.Printf("Waiting for %s confirmation...", strings.ToLower(label))
+	receipt, err := waitForReceipt(ctx, ec, signed.Hash())
+	if err != nil {
+		return fmt.Errorf("\nwait for receipt: %w", err)
+	}
+	fmt.Printf(" confirmed in block %s (status: %d)\n", receipt.BlockNumber, receipt.Status)
+	if tx.OrderID != "" {
+		fmt.Printf("Order ID: %s\n", tx.OrderID)
+	}
+	for i, el := range receipt.Logs {
+		e.log.Debug("event", "index", i, "address", el.Address.Hex())
+		for j, topic := range el.Topics {
+			e.log.Debug("  topic", "index", j, "value", topic.Hex())
 		}
-		fmt.Printf(" confirmed in block %s (status: %d)\n", receipt.BlockNumber, receipt.Status)
-		for i, el := range receipt.Logs {
-			e.log.Debug("event", "index", i, "address", el.Address.Hex())
-			for j, topic := range el.Topics {
-				e.log.Debug("  topic", "index", j, "value", topic.Hex())
-			}
-			if len(el.Data) > 0 {
-				e.log.Debug("  data", "hex", "0x"+hex.EncodeToString(el.Data))
-			}
+		if len(el.Data) > 0 {
+			e.log.Debug("  data", "hex", "0x"+hex.EncodeToString(el.Data))
 		}
 	}
 

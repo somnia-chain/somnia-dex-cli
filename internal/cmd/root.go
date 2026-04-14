@@ -64,7 +64,11 @@ Environment variables:
 			a.client.Log = a.log
 
 			rpcURL, _ := cmd.Flags().GetString("rpc-url")
-			if key, err := loadKeyFromEnv(); err == nil {
+			key, err := loadKeyFromEnv()
+			if err != nil {
+				key, err = loadKeyFromKeystore()
+			}
+			if err == nil {
 				a.eth = newEthClient(key, rpcURL, a.log)
 				a.authenticate(apiURL) //nolint:errcheck // best-effort
 			}
