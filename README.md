@@ -32,6 +32,7 @@ go build -o dreamdex ./cmd/dreamdex/
 | `DREAMDEX_RPC_URL` | Somnia JSON-RPC URL | `https://dream-rpc.somnia.network` |
 | `DREAMDEX_PRIVATE_KEY` | Hex-encoded private key (headless/CI fallback) | — |
 | `DREAMDEX_PASSWORD` | Keystore passphrase (headless/CI fallback) | — |
+| `DREAMDEX_JSON` | Force JSON output (useful for MCP/scripting) | — |
 
 ## Key management
 
