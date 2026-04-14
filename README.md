@@ -156,11 +156,12 @@ Via the CLI:
 
 ```sh
 claude mcp add --transport stdio \
+  -e DREAMDEX_JSON=1 \
   -e DREAMDEX_PRIVATE_KEY=0x... \
   dreamdex -- dreamdex mcp start
 ```
 
-Or add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.json` (global):
+Or add to your `.mcp.json` (project-level) or `~/.claude.json` (global):
 
 ```json
 {
@@ -169,6 +170,7 @@ Or add to your `.mcp.json` (project-level) or `~/.claude/claude_desktop_config.j
       "command": "dreamdex",
       "args": ["mcp", "start"],
       "env": {
+        "DREAMDEX_JSON": "1",
         "DREAMDEX_PRIVATE_KEY": "0x..."
       }
     }
