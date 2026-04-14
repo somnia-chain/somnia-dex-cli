@@ -32,14 +32,14 @@ func (o Orders) JSON() any {
 
 func (o Orders) Table() [][]string {
 	v := [][]string{
-		{"ID", "Status", "Created", "Type", "Side", "Price", "Amount", "Filled", "Remaining"},
+		{"Symbol", "ID", "Status", "Created", "Type", "Side", "Price", "Amount", "Filled", "Remaining"},
 	}
 
 	for _, order := range o.Orders {
 		createdAt := time.UnixMilli(order.CreatedAt)
 
 		v = append(v, []string{
-			order.ID, order.Status, createdAt.String(), order.Type, order.Side, order.Price, order.Amount, order.Filled, order.Remaining,
+			order.Symbol, order.ID, order.Status, createdAt.String(), order.Type, order.Side, order.Price, order.Amount, order.Filled, order.Remaining,
 		})
 	}
 

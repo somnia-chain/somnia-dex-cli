@@ -29,11 +29,11 @@ func (s StopOrders) JSON() any { return s }
 
 func (s StopOrders) Table() [][]string {
 	v := [][]string{
-		{"ID", "Created", "Status", "Type", "Side", "Amount", "Trigger", "Operator", "Spot Order"},
+		{"Symbol", "ID", "Created", "Status", "Type", "Side", "Amount", "Trigger", "Operator", "Spot Order"},
 	}
 	for _, o := range s.StopOrders {
 		v = append(v, []string{
-			o.ID, time.UnixMilli(o.CreatedAt).String(), o.Status, o.Type, o.Side,
+			o.Symbol, o.ID, time.UnixMilli(o.CreatedAt).String(), o.Status, o.Type, o.Side,
 			o.Amount, o.TriggerPrice, o.TriggerOperator, o.SpotOrderID,
 		})
 	}

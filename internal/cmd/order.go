@@ -196,6 +196,7 @@ func (a *app) orderGetCmd() *cobra.Command {
 			if isJSON(cmd) {
 				return printJSON(o)
 			}
+			fmt.Printf("Symbol:    %s\n", o.Symbol)
 			fmt.Printf("Order:     %s\n", o.ID)
 			fmt.Printf("Status:    %s\n", o.Status)
 			fmt.Printf("Type:      %s %s\n", o.Side, o.Type)
