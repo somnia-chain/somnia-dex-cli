@@ -120,7 +120,6 @@ dreamdex watch orderbook SOMI:SOMUSD          # stream order book updates
 dreamdex watch trades                          # stream trades for all markets
 dreamdex watch candles WBTC:SOMUSD --interval 5m
 dreamdex watch order <order-id>                # watch a specific order
-dreamdex watch wallet                          # stream order events for your wallet
 dreamdex watch trades --timeout 5m             # auto-terminate after 5 minutes
 ```
 

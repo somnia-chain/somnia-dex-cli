@@ -185,9 +185,13 @@ func loadKeyFromEnv() (*ecdsa.PrivateKey, error) {
 // loadKeyFromKeystore decrypts the first account in the keystore directory.
 func loadKeyFromKeystore(apiURL string) (*ecdsa.PrivateKey, error) {
 	dir := keystoreDir(apiURL)
+	host := "default"
+	if u, err := url.Parse(apiURL); err == nil && u.Host != "" {
+		host = u.Host
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("no keystore found; run: dreamdex login")
+		return nil, fmt.Errorf("no keystore found for %s; run: dreamdex login --api-url %s", host, apiURL)
 	}
 	var files []os.DirEntry
 	for _, e := range entries {
@@ -196,7 +200,7 @@ func loadKeyFromKeystore(apiURL string) (*ecdsa.PrivateKey, error) {
 		}
 	}
 	if len(files) == 0 {
-		return nil, fmt.Errorf("no accounts in keystore; run: dreamdex login")
+		return nil, fmt.Errorf("no accounts in keystore for %s; run: dreamdex login --api-url %s", host, apiURL)
 	}
 
 	keyjson, err := os.ReadFile(filepath.Join(dir, files[0].Name()))
