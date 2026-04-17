@@ -12,7 +12,7 @@ import (
 // stopOrderCmd returns the "stop-order" parent command.
 func (a *app) stopOrderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stop-order",
+		Use:   "stoporder",
 		Short: "Manage stop orders",
 		Long: `Place, list, and cancel conditional stop orders.
 

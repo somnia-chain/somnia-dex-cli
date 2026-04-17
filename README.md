@@ -95,12 +95,12 @@ dreamdex order reduce SOMI:SOMUSD <order-id> --quantity 25
 ### Stop orders
 
 ```sh
-dreamdex stop-order place SOMI:SOMUSD --side sell --amount 1 --trigger-price 0.17 --trigger-operator lte
-dreamdex stop-order place SOMI:SOMUSD --side buy --type limit --amount 50 --price 0.20 \
+dreamdex stoporder place SOMI:SOMUSD --side sell --amount 1 --trigger-price 0.17 --trigger-operator lte
+dreamdex stoporder place SOMI:SOMUSD --side buy --type limit --amount 50 --price 0.20 \
   --trigger-price 0.19 --trigger-operator gte
-dreamdex stop-order list                  # all markets
-dreamdex stop-order list SOMI:SOMUSD --status pending
-dreamdex stop-order cancel SOMI:SOMUSD <id>
+dreamdex stoporder list                  # all markets
+dreamdex stoporder list SOMI:SOMUSD --status pending
+dreamdex stoporder cancel SOMI:SOMUSD <id>
 ```
 
 ### Vault

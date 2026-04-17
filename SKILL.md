@@ -8,7 +8,7 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 - For headless/MCP use, set `DREAMDEX_PRIVATE_KEY` (hex-encoded, with or without `0x` prefix) to bypass the keystore, or set `DREAMDEX_PASSWORD` to unlock it non-interactively.
 - All commands support `--json` for structured JSON output. Always use `--json` when you need to parse results programmatically.
 - Commands that accept an optional `[symbol]` default to all markets when omitted. Symbols look like `SOMI:SOMUSD`, `WETH:SOMUSD`, `WBTC:SOMUSD`.
-- All write commands (order place/cancel/reduce, stop-order place/cancel, vault deposit/withdraw/approve) always wait for on-chain confirmation before returning.
+- All write commands (order place/cancel/reduce, stoporder place/cancel, vault deposit/withdraw/approve) always wait for on-chain confirmation before returning.
 
 ## Concepts
 
@@ -45,9 +45,9 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 
 ### Stop orders (auth required)
 
-- `dreamdex stop-order place <symbol> --side buy|sell --amount <n> --trigger-price <n> --trigger-operator gte|lte [--type market|limit] [--price <n>]` - Place a conditional stop order. `--price` required for limit type.
-- `dreamdex stop-order list [symbol] [--status pending|triggered|cancelled|failed]` - List stop orders.
-- `dreamdex stop-order cancel <symbol> <id>` - Cancel a pending stop order on-chain.
+- `dreamdex stoporder place <symbol> --side buy|sell --amount <n> --trigger-price <n> --trigger-operator gte|lte [--type market|limit] [--price <n>]` - Place a conditional stop order. `--price` required for limit type.
+- `dreamdex stoporder list [symbol] [--status pending|triggered|cancelled|failed]` - List stop orders.
+- `dreamdex stoporder cancel <symbol> <id>` - Cancel a pending stop order on-chain.
 
 ### Vault (auth required)
 

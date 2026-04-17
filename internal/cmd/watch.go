@@ -30,6 +30,7 @@ after a duration (e.g. 30s, 5m).`,
 		a.watchTradesCmd(),
 		a.watchCandlesCmd(),
 		a.watchOrderCmd(),
+		a.watchStopOrderCmd(),
 	)
 	return cmd
 }
@@ -131,6 +132,78 @@ func (a *app) watchOrderCmd() *cobra.Command {
 				"orderId": args[0],
 			}, displayOrder)
 		},
+	}
+}
+
+// watchStopOrderCmd polls a stop order for status changes.
+func (a *app) watchStopOrderCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stoporder <symbol> <id>",
+		Short: "Watch a stop order for status changes",
+		Long: `Poll a stop order for status changes. Prints the current state on first fetch,
+then prints updates when the status changes. Exits automatically when the stop
+order reaches a terminal state (triggered, cancelled, failed).`,
+		Args: cobra.ExactArgs(2),
+		Annotations: map[string]string{
+			ophis.AnnotationTitle: "Watch stop order",
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := a.requireAuth(cmd); err != nil {
+				return err
+			}
+			interval, _ := cmd.Flags().GetDuration("interval")
+			return a.pollStopOrder(cmd, args[0], args[1], interval)
+		},
+	}
+	cmd.Flags().Duration("interval", 2*time.Second, "poll interval")
+	return cmd
+}
+
+// pollStopOrder polls the stop order API until a terminal status or context cancellation.
+func (a *app) pollStopOrder(cmd *cobra.Command, symbol, id string, interval time.Duration) error {
+	timeout, _ := cmd.Flags().GetDuration("timeout")
+	jsonMode := isJSON(cmd)
+
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+	defer stop()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+
+	var lastStatus string
+	for {
+		order, err := a.client.GetStopOrder(symbol, id)
+		if err != nil {
+			return fmt.Errorf("get stop order: %w", err)
+		}
+
+		if order.Status != lastStatus {
+			if jsonMode {
+				printJSON(order)
+			} else {
+				ts := time.Now().Format("15:04:05")
+				fmt.Printf("[%s] %s  stop-order #%s  %s %s  trigger:%s %s  status:%s\n",
+					ts, order.Symbol, order.ID, order.Side, order.Type,
+					order.TriggerOperator, order.TriggerPrice, order.Status)
+			}
+			lastStatus = order.Status
+		}
+
+		switch lastStatus {
+		case "triggered", "cancelled", "failed":
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-tick.C:
+		}
 	}
 }
 
