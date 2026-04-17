@@ -36,7 +36,15 @@ go build -o dreamdex ./cmd/dreamdex/
 
 ## Key management
 
-Private keys are stored in an encrypted keystore at `~/.config/dreamdex/keystore/` using the [Web3 Secret Storage](https://ethereum.org/en/developers/docs/data-structures-and-encoding/web3-secret-storage/) format (the same format used by geth).
+Private keys are stored in an encrypted keystore using the [Web3 Secret Storage](https://ethereum.org/en/developers/docs/data-structures-and-encoding/web3-secret-storage/) format (the same format used by geth). The keystore is namespaced by API host under your OS config directory:
+
+| OS | Path |
+|---|---|
+| Linux | `~/.config/dreamdex/keystore/<host>/` |
+| macOS | `~/Library/Application Support/dreamdex/keystore/<host>/` |
+| Windows | `%AppData%\dreamdex\keystore\<host>\` |
+
+**Your private key is never stored in plaintext.** It is encrypted with your passphrase using scrypt + AES-128-CTR before being written to disk. The plaintext key is held in memory only for the duration of the command and is never logged, even at debug log level.
 
 ### First-time setup
 
@@ -47,7 +55,7 @@ export DREAMDEX_PRIVATE_KEY=0x...
 dreamdex login
 ```
 
-This prompts for a passphrase, encrypts the key, and stores it. You can then unset `DREAMDEX_PRIVATE_KEY` -- subsequent commands will read from the keystore and prompt for your passphrase.
+This prompts for a passphrase, encrypts the key, and stores it. **Unset `DREAMDEX_PRIVATE_KEY` immediately after** - subsequent commands will read from the encrypted keystore and prompt for your passphrase.
 
 ### Headless / MCP usage
 
@@ -112,6 +120,7 @@ dreamdex watch orderbook SOMI:SOMUSD          # stream order book updates
 dreamdex watch trades                          # stream trades for all markets
 dreamdex watch candles WBTC:SOMUSD --interval 5m
 dreamdex watch order <order-id>                # watch a specific order
+dreamdex watch wallet                          # stream order events for your wallet
 dreamdex watch trades --timeout 5m             # auto-terminate after 5 minutes
 ```
 

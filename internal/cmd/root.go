@@ -66,7 +66,7 @@ Environment variables:
 			rpcURL, _ := cmd.Flags().GetString("rpc-url")
 			key, err := loadKeyFromEnv()
 			if err != nil {
-				key, err = loadKeyFromKeystore()
+				key, err = loadKeyFromKeystore(apiURL)
 			}
 			if err == nil {
 				a.eth = newEthClient(key, rpcURL, a.log)

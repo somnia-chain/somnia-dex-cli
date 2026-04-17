@@ -21,7 +21,8 @@ via Sign-In with Ethereum (SIWE).
 On first run, set DREAMDEX_PRIVATE_KEY and you will be prompted for a passphrase
 to encrypt the key. Subsequent runs authenticate using the stored keystore.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			dir := keystoreDir()
+			apiURL, _ := cmd.Flags().GetString("api-url")
+			dir := keystoreDir(apiURL)
 			ks := keystore.NewKeyStore(dir, keystore.StandardScryptN, keystore.StandardScryptP)
 
 			if len(ks.Accounts()) == 0 {
@@ -42,7 +43,6 @@ to encrypt the key. Subsequent runs authenticate using the stored keystore.`,
 			if err := a.requireEth(cmd); err != nil {
 				return err
 			}
-			apiURL, _ := cmd.Flags().GetString("api-url")
 			addr, _, err := a.authenticate(apiURL)
 			if err != nil {
 				return err

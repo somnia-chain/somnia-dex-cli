@@ -30,6 +30,7 @@ after a duration (e.g. 30s, 5m).`,
 		a.watchTradesCmd(),
 		a.watchCandlesCmd(),
 		a.watchOrderCmd(),
+		a.watchWalletCmd(),
 	)
 	return cmd
 }
@@ -134,9 +135,34 @@ func (a *app) watchOrderCmd() *cobra.Command {
 	}
 }
 
+// watchWalletCmd streams order events for the authenticated wallet.
+func (a *app) watchWalletCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "wallet",
+		Short: "Stream order events for your wallet",
+		Long: `Stream real-time order events (placed, filled, reduced, cancelled, expired)
+for your wallet across all markets. Requires authentication.`,
+		Args: cobra.NoArgs,
+		Annotations: map[string]string{
+			ophis.AnnotationTitle: "Watch wallet",
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := a.requireAuth(cmd); err != nil {
+				return err
+			}
+			return a.streamMulti(cmd, []subscription{{
+				channel:     "wallet",
+				params:      map[string]any{"wallet": a.eth.Address().Hex()},
+				bearerToken: a.client.Token,
+			}}, displayWallet)
+		},
+	}
+}
+
 type subscription struct {
-	channel string
-	params  any
+	channel     string
+	params      any
+	bearerToken string
 }
 
 // stream connects to the WebSocket, subscribes to a channel, and prints messages.
@@ -204,11 +230,15 @@ func (a *app) streamMulti(cmd *cobra.Command, subs []subscription, display func(
 	log.Info("connected")
 
 	for _, sub := range subs {
-		if err := wsSend(ws, log, map[string]any{
+		msg := map[string]any{
 			"operation": "subscribe",
 			"channel":   sub.channel,
 			"params":    sub.params,
-		}); err != nil {
+		}
+		if sub.bearerToken != "" {
+			msg["bearerToken"] = sub.bearerToken
+		}
+		if err := wsSend(ws, log, msg); err != nil {
 			return fmt.Errorf("subscribe: %w", err)
 		}
 	}
@@ -392,4 +422,32 @@ func displayOrder(msg json.RawMessage) {
 	ts := time.Now().Format("15:04:05")
 	fmt.Printf("[%s] %s  %s %s  price:%s  filled:%s  status:%s\n",
 		ts, m.Type, m.Order.Market, m.Order.Side, m.Order.Price, m.Order.Filled, m.Order.Status)
+}
+
+func displayWallet(msg json.RawMessage) {
+	var m struct {
+		Symbol    string `json:"symbol"`
+		OrderID   string `json:"orderId"`
+		Event     string `json:"event"`
+		Timestamp int64  `json:"timestamp"`
+		IsBid     *bool  `json:"isBid"`
+		Price     string `json:"price"`
+		Quantity  string `json:"quantity"`
+		Remaining string `json:"remaining"`
+	}
+	if json.Unmarshal(msg, &m) != nil {
+		return
+	}
+
+	ts := time.UnixMilli(m.Timestamp).Format("15:04:05")
+	side := ""
+	if m.IsBid != nil {
+		if *m.IsBid {
+			side = "buy"
+		} else {
+			side = "sell"
+		}
+	}
+	fmt.Printf("[%s] %s  %-9s  #%-6s  %-4s  %s @ %s  remaining: %s\n",
+		ts, m.Symbol, m.Event, m.OrderID, side, m.Quantity, m.Price, m.Remaining)
 }

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -158,13 +159,17 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 	return nil
 }
 
-// keystoreDir returns the path to the encrypted keystore directory.
-func keystoreDir() string {
+// keystoreDir returns the keystore directory namespaced by API host.
+func keystoreDir(apiURL string) string {
+	host := "default"
+	if u, err := url.Parse(apiURL); err == nil && u.Host != "" {
+		host = u.Host
+	}
 	if dir, err := os.UserConfigDir(); err == nil {
-		return filepath.Join(dir, "dreamdex", "keystore")
+		return filepath.Join(dir, "dreamdex", "keystore", host)
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "dreamdex", "keystore")
+	return filepath.Join(home, ".config", "dreamdex", "keystore", host)
 }
 
 // loadKeyFromEnv loads a private key from the DREAMDEX_PRIVATE_KEY environment variable.
@@ -178,8 +183,8 @@ func loadKeyFromEnv() (*ecdsa.PrivateKey, error) {
 }
 
 // loadKeyFromKeystore decrypts the first account in the keystore directory.
-func loadKeyFromKeystore() (*ecdsa.PrivateKey, error) {
-	dir := keystoreDir()
+func loadKeyFromKeystore(apiURL string) (*ecdsa.PrivateKey, error) {
+	dir := keystoreDir(apiURL)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("no keystore found; run: dreamdex login")
@@ -253,7 +258,8 @@ func (a *app) requireEth(cmd *cobra.Command) error {
 	if a.eth != nil {
 		return nil
 	}
-	key, err := loadKeyFromKeystore()
+	apiURL, _ := cmd.Flags().GetString("api-url")
+	key, err := loadKeyFromKeystore(apiURL)
 	if err != nil {
 		return fmt.Errorf("no key available: %w", err)
 	}
