@@ -142,7 +142,7 @@ func (a *app) watchStopOrderCmd() *cobra.Command {
 		Short: "Watch a stop order for status changes",
 		Long: `Poll a stop order for status changes. Prints the current state on first fetch,
 then prints updates when the status changes. Exits automatically when the stop
-order reaches a terminal state (triggered, cancelled, failed).`,
+order reaches a terminal state (triggered, canceled, failed).`,
 		Args: cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Watch stop order",
@@ -195,7 +195,7 @@ func (a *app) pollStopOrder(cmd *cobra.Command, symbol, id string, interval time
 		}
 
 		switch lastStatus {
-		case "triggered", "cancelled", "failed":
+		case "triggered", "canceled", "failed":
 			return nil
 		}
 

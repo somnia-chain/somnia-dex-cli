@@ -22,7 +22,7 @@ func (a *app) orderCmd() *cobra.Command {
 
 Orders are instructions to buy or sell tokens. Market orders execute immediately at
 the best available price. Limit orders rest on the order book at a specified price
-until filled, cancelled, or expired.`,
+until filled, canceled, or expired.`,
 	}
 	cmd.AddCommand(
 		a.orderPlaceCmd(),

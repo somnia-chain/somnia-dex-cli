@@ -16,7 +16,7 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 
 **Orders** - Instructions to buy or sell tokens. Market orders execute immediately as limit IOC orders priced from the order book with a slippage tolerance (default 0.5%). Limit orders rest on the book at a specified price. Sub-types: `normalOrder` (default, rests until filled), `fillOrKill` (fill entirely or cancel), `immediateOrCancel` (fill what you can, cancel rest), `postOnly` (only accepted if it rests on the book).
 
-**Stop orders** - Conditional orders that activate when the market price crosses a trigger. Use `--trigger-operator lte` for stop-loss (sell when price drops) or `--trigger-operator gte` for breakout entry (buy when price rises). States: `pending`, `triggered`, `cancelled`, `failed`.
+**Stop orders** - Conditional orders that activate when the market price crosses a trigger. Use `--trigger-operator lte` for stop-loss (sell when price drops) or `--trigger-operator gte` for breakout entry (buy when price rises). States: `pending`, `triggered`, `canceled`, `failed`.
 
 **Vault** - On-chain escrow for pre-funding trades. Workflow: approve -> deposit -> trade with `--funding-source vault` -> withdraw. Optional - orders default to `--funding-source wallet`.
 
@@ -46,7 +46,7 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 ### Stop orders (auth required)
 
 - `dreamdex stoporder place <symbol> --side buy|sell --amount <n> --trigger-price <n> --trigger-operator gte|lte [--type market|limit] [--price <n>]` - Place a conditional stop order. `--price` required for limit type.
-- `dreamdex stoporder list [symbol] [--status pending|triggered|cancelled|failed]` - List stop orders.
+- `dreamdex stoporder list [symbol] [--status pending|triggered|canceled|failed]` - List stop orders.
 - `dreamdex stoporder cancel <symbol> <id>` - Cancel a pending stop order on-chain.
 
 ### Vault (auth required)

@@ -99,7 +99,7 @@ func (a *app) stopOrderListCmd() *cobra.Command {
 		Use:   "list [symbol]",
 		Short: "List stop orders (all markets if no symbol given)",
 		Long: `List stop orders for one or all markets. Optionally filter by status: pending,
-triggered, cancelled, or failed.`,
+triggered, canceled, or failed.`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -128,7 +128,7 @@ triggered, cancelled, or failed.`,
 			return printResult(cmd, api.StopOrders{StopOrders: all})
 		},
 	}
-	cmd.Flags().String("status", "", "filter: pending, triggered, cancelled, failed")
+	cmd.Flags().String("status", "", "filter: pending, triggered, canceled, failed")
 	return cmd
 }
 
