@@ -69,10 +69,6 @@ The CLI handles token approval, signing, and transaction submission automaticall
 				return fmt.Errorf("--price is required for limit orders")
 			}
 
-			if typ == "market" && side == "buy" && fundingSource == "wallet" {
-				return fmt.Errorf("market buy orders are not supported with --funding-source=wallet; place a limit buy order with an explicit --price instead")
-			}
-
 			// Market orders: convert to limit IOC with orderbook-derived price.
 			if typ == "market" {
 				p, err := marketPrice(a.client, args[0], side, slippage)
