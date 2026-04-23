@@ -222,4 +222,4 @@ The same reference is also available as [SKILL.md](SKILL.md) in the repository.
 
 ## License
 
-See [LICENSE](LICENSE).
+Copyright (c) 2026 DreamDEX S.A. (Panama) - see LICENSE.md.
