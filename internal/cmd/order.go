@@ -149,8 +149,7 @@ func (a *app) orderListCmd() *cobra.Command {
 canceled, expired, or rejected.`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
-			ophis.AnnotationReadOnly: "true",
-			ophis.AnnotationTitle:    "List orders",
+			ophis.AnnotationTitle: "List orders",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbols, err := a.resolveSymbols(args)
@@ -184,8 +183,7 @@ func (a *app) orderGetCmd() *cobra.Command {
 		Long:  "Show full details for a single order, including status, fill progress, and transaction hash.",
 		Args:  cobra.ExactArgs(2),
 		Annotations: map[string]string{
-			ophis.AnnotationReadOnly: "true",
-			ophis.AnnotationTitle:    "Get order",
+			ophis.AnnotationTitle: "Get order",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o, err := a.client.GetOrder(args[0], args[1])

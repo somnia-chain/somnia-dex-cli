@@ -38,8 +38,7 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 wallet address if --wallet is not specified.`,
 		Args:  cobra.ExactArgs(1),
 		Annotations: map[string]string{
-			ophis.AnnotationReadOnly: "true",
-			ophis.AnnotationTitle:    "Get vault balances",
+			ophis.AnnotationTitle: "Get vault balances",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wallet, _ := cmd.Flags().GetString("wallet")

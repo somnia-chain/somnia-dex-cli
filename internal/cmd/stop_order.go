@@ -102,8 +102,7 @@ func (a *app) stopOrderListCmd() *cobra.Command {
 triggered, canceled, or failed.`,
 		Args:  cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
-			ophis.AnnotationReadOnly: "true",
-			ophis.AnnotationTitle:    "List stop orders",
+			ophis.AnnotationTitle: "List stop orders",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			symbols, err := a.resolveSymbols(args)
