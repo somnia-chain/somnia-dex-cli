@@ -63,14 +63,16 @@ Environment variables:
 			a.client = api.NewClient(apiURL)
 			a.client.Log = a.log
 
-			rpcURL, _ := cmd.Flags().GetString("rpc-url")
-			key, err := loadKeyFromEnv()
-			if err != nil {
-				key, err = loadKeyFromKeystore(apiURL)
-			}
-			if err == nil {
-				a.eth = newEthClient(key, rpcURL, a.log)
-				a.authenticate(apiURL) //nolint:errcheck // best-effort
+			if cmd.Annotations[ophis.AnnotationReadOnly] != "true" {
+				rpcURL, _ := cmd.Flags().GetString("rpc-url")
+				key, err := loadKeyFromEnv()
+				if err != nil {
+					key, err = loadKeyFromKeystore(apiURL)
+				}
+				if err == nil {
+					a.eth = newEthClient(key, rpcURL, a.log)
+					a.authenticate(apiURL) //nolint:errcheck // best-effort
+				}
 			}
 			return nil
 		},
