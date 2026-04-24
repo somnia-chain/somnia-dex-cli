@@ -76,7 +76,8 @@ Examples:
 				return fmt.Errorf("prepare stop order: %w", err)
 			}
 
-			return a.eth.SignAndSend(tx, "Stop order")
+			_, err = a.eth.SignAndSend(tx, "Stop order")
+			return err
 		},
 	}
 	f := cmd.Flags()
@@ -147,7 +148,8 @@ func (a *app) stopOrderCancelCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return a.eth.SignAndSend(tx, "Stop order cancel")
+			_, err = a.eth.SignAndSend(tx, "Stop order cancel")
+			return err
 		},
 	}
 	return cmd

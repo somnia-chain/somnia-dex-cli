@@ -214,6 +214,18 @@ echo "Place a limit buy for 100 SOMI at 0.15. $(dreamdex skill)" | llm
 
 The same reference is also available as [SKILL.md](SKILL.md) in the repository.
 
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | User input error (bad flags, missing arguments) |
+| 2 | Authentication error (no key, bad passphrase, unauthorized) |
+| 3 | Network error (API unreachable, RPC connection failed) |
+| 4 | Chain error (tx revert, nonce, gas estimation, signing) |
+| 101 | Order not placed (e.g. IOC/FOK with no available fills) |
+| 102 | Transaction reverted on-chain (receipt status 0) |
+
 ## Architecture
 
 - **Non-custodial**: the API returns unsigned EVM transactions; the CLI signs them locally with your private key and broadcasts via RPC.

@@ -117,7 +117,8 @@ func (a *app) vaultActionCmd(use, short, long string, prepare prepareFunc) *cobr
 			}
 
 			label := strings.Title(use) //nolint:staticcheck
-			return a.eth.SignAndSend(tx, label)
+			_, err = a.eth.SignAndSend(tx, label)
+			return err
 		},
 	}
 	cmd.Flags().String("currency", "", "currency code, e.g. SOM or USDC (required)")

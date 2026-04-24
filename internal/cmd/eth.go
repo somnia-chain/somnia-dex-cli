@@ -67,7 +67,8 @@ func (e *ethClient) SignPersonal(message string) (string, error) {
 }
 
 // SignAndSend signs an unsigned transaction from the API and broadcasts it via RPC.
-func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
+// Returns the receipt on success.
+func (e *ethClient) SignAndSend(tx *api.Transaction, label string) (*types.Receipt, error) {
 	e.log.Debug("unsigned tx", "to", tx.To, "value", tx.Value, "chainId", tx.ChainID, "data", tx.Data)
 
 	rc, err := rpc.DialOptions(context.Background(), e.rpcURL,
@@ -76,7 +77,7 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 		}),
 	)
 	if err != nil {
-		return fmt.Errorf("connect to RPC: %w", err)
+		return nil, fmt.Errorf("connect to RPC: %w", err)
 	}
 	defer rc.Close()
 	ec := ethclient.NewClient(rc)
@@ -88,12 +89,12 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 	value := new(big.Int)
 	if tx.Value != "" {
 		if _, ok := value.SetString(tx.Value, 10); !ok {
-			return fmt.Errorf("invalid tx value: %s", tx.Value)
+			return nil, fmt.Errorf("invalid tx value: %s", tx.Value)
 		}
 	}
 	chainID := new(big.Int)
 	if _, ok := chainID.SetString(tx.ChainID, 10); !ok {
-		return fmt.Errorf("invalid chain ID: %s", tx.ChainID)
+		return nil, fmt.Errorf("invalid chain ID: %s", tx.ChainID)
 	}
 
 	var gasLimit uint64
@@ -105,17 +106,17 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 			From: e.addr, To: &to, Value: value, Data: data,
 		})
 		if err != nil {
-			return fmt.Errorf("transaction would revert: %s", revertReason(err))
+			return nil, fmt.Errorf("transaction would revert: %s", revertReason(err))
 		}
 	}
 
 	nonce, err := ec.PendingNonceAt(ctx, e.addr)
 	if err != nil {
-		return fmt.Errorf("get nonce: %w", err)
+		return nil, fmt.Errorf("get nonce: %w", err)
 	}
 	gasPrice, err := ec.SuggestGasPrice(ctx)
 	if err != nil {
-		return fmt.Errorf("get gas price: %w", err)
+		return nil, fmt.Errorf("get gas price: %w", err)
 	}
 
 	rawTx := types.NewTx(&types.LegacyTx{
@@ -129,22 +130,22 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 
 	signed, err := types.SignTx(rawTx, types.NewEIP155Signer(chainID), e.key)
 	if err != nil {
-		return fmt.Errorf("sign tx: %w", err)
+		return nil, fmt.Errorf("sign tx: %w", err)
 	}
 
 	if err := ec.SendTransaction(ctx, signed); err != nil {
-		return fmt.Errorf("send tx: %w", err)
+		return nil, fmt.Errorf("send tx: %w", err)
 	}
 
 	fmt.Printf("%s sent: %s\n", label, signed.Hash().Hex())
 	fmt.Printf("Waiting for %s confirmation...", strings.ToLower(label))
 	receipt, err := waitForReceipt(ctx, ec, signed.Hash())
 	if err != nil {
-		return fmt.Errorf("\nwait for receipt: %w", err)
+		return nil, fmt.Errorf("\nwait for receipt: %w", err)
 	}
 	fmt.Printf(" confirmed in block %s (status: %d)\n", receipt.BlockNumber, receipt.Status)
-	if tx.OrderID != "" {
-		fmt.Printf("Order ID: %s\n", tx.OrderID)
+	if receipt.Status == 0 {
+		return receipt, &ExitError{Code: ExitReverted, Err: fmt.Errorf("transaction reverted on-chain: %s", signed.Hash().Hex())}
 	}
 	for i, el := range receipt.Logs {
 		e.log.Debug("event", "index", i, "address", el.Address.Hex())
@@ -156,7 +157,7 @@ func (e *ethClient) SignAndSend(tx *api.Transaction, label string) error {
 		}
 	}
 
-	return nil
+	return receipt, nil
 }
 
 // keystoreDir returns the keystore directory namespaced by API host.

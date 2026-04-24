@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/lmittmann/tint"
 	"github.com/njayp/ophis"
@@ -12,6 +14,33 @@ import (
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
 )
+
+// Exit codes:
+//
+//	0       success
+//	1       user input error (bad flags, missing arguments)
+//	2       authentication error (no key, bad passphrase, unauthorized)
+//	3       network error (API unreachable, RPC connection failed)
+//	4       chain error (tx revert, nonce, gas estimation, signing)
+//	101     order not placed (e.g. IOC/FOK with no fills)
+//	102     transaction reverted on-chain (receipt status 0)
+const (
+	ExitInput    = 1
+	ExitAuth     = 2
+	ExitNetwork  = 3
+	ExitChain    = 4
+	ExitNoFill   = 101
+	ExitReverted = 102
+)
+
+// ExitError wraps an error with a specific process exit code.
+type ExitError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitError) Error() string { return e.Err.Error() }
+func (e *ExitError) Unwrap() error { return e.Err }
 
 // app holds shared state for all commands.
 type app struct {
@@ -25,13 +54,67 @@ func Execute() {
 	a := &app{}
 	root := a.rootCmd()
 	if err := root.Execute(); err != nil {
+		code := exitCode(err)
 		if isJSON(root) {
 			json.NewEncoder(os.Stderr).Encode(map[string]string{"error": err.Error()})
 		} else {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		}
-		os.Exit(1)
+		os.Exit(code)
 	}
+}
+
+// exitCode determines the process exit code for an error.
+func exitCode(err error) int {
+	// Explicit exit code takes priority.
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.Code
+	}
+
+	// API errors: auth vs other.
+	var apiErr *api.APIError
+	if errors.As(err, &apiErr) {
+		if apiErr.Name == "unauthorized" {
+			return ExitAuth
+		}
+		return ExitInput
+	}
+
+	msg := err.Error()
+
+	// Auth errors.
+	for _, s := range []string{
+		"no key available", "wrong passphrase", "not logged in",
+		"DREAMDEX_PRIVATE_KEY", "DREAMDEX_PASSWORD", "no keystore found",
+		"no accounts in keystore", "passphrase",
+	} {
+		if strings.Contains(msg, s) {
+			return ExitAuth
+		}
+	}
+
+	// Chain errors.
+	for _, s := range []string{
+		"transaction would revert", "sign tx", "get nonce",
+		"get gas price", "send tx", "wait for receipt",
+		"invalid chain ID", "invalid tx value",
+	} {
+		if strings.Contains(msg, s) {
+			return ExitChain
+		}
+	}
+
+	// Network errors.
+	for _, s := range []string{
+		"connect to RPC", "connect:", "read response",
+	} {
+		if strings.Contains(msg, s) {
+			return ExitNetwork
+		}
+	}
+
+	return ExitInput
 }
 
 // rootCmd builds the top-level command with persistent flags and all subcommands.

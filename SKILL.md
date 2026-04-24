@@ -65,6 +65,18 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on
 
 All `watch` commands support `--timeout <duration>` (e.g. `30s`, `5m`) to auto-terminate.
 
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | User input error (bad flags, missing arguments) |
+| 2 | Authentication error (no key, bad passphrase, unauthorized) |
+| 3 | Network error (API unreachable, RPC connection failed) |
+| 4 | Chain error (tx revert, nonce, gas estimation, signing) |
+| 101 | Order not placed (e.g. IOC/FOK with no available fills) |
+| 102 | Transaction reverted on-chain (receipt status 0) |
+
 ## Global flags
 
 `--json` structured JSON output | `--log-level debug|info|warn|error` | `--api-url <url>` | `--rpc-url <url>`

@@ -3,11 +3,14 @@ package cmd
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
 	"github.com/spf13/cobra"
@@ -115,12 +118,20 @@ The CLI handles token approval, signing, and transaction submission automaticall
 					return fmt.Errorf("prepare approval: %w", err)
 				}
 				approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
-				if err := a.eth.SignAndSend(approveTx, approveLabel); err != nil {
+				if _, err := a.eth.SignAndSend(approveTx, approveLabel); err != nil {
 					return fmt.Errorf("token approval: %w", err)
 				}
 			}
 
-			return a.eth.SignAndSend(tx, "Order")
+			receipt, err := a.eth.SignAndSend(tx, "Order")
+			if err != nil {
+				return err
+			}
+			if id := orderIDFromReceipt(receipt); id != "" {
+				fmt.Printf("Order ID: %s\n", id)
+				return nil
+			}
+			return &ExitError{Code: ExitNoFill, Err: fmt.Errorf("order was not placed (no fills available)")}
 		},
 	}
 	f := cmd.Flags()
@@ -225,7 +236,8 @@ func (a *app) orderCancelCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return a.eth.SignAndSend(tx, "Cancel")
+			_, err = a.eth.SignAndSend(tx, "Cancel")
+			return err
 		},
 	}
 	return cmd
@@ -251,12 +263,28 @@ submits an amendment transaction on-chain.`,
 			if err != nil {
 				return err
 			}
-			return a.eth.SignAndSend(tx, "Order reduce")
+			_, err = a.eth.SignAndSend(tx, "Order reduce")
+			return err
 		},
 	}
 	cmd.Flags().String("quantity", "", "new remaining quantity (required)")
 	cmd.MarkFlagRequired("quantity")
 	return cmd
+}
+
+// orderPlacedTopic is the keccak256 of the OrderPlaced event signature.
+var orderPlacedTopic = crypto.Keccak256Hash(
+	[]byte("OrderPlaced(uint128,(uint128,bool,address,uint64,uint256,uint256,uint256,uint64))"),
+)
+
+// orderIDFromReceipt extracts the order ID from an OrderPlaced event in the receipt.
+func orderIDFromReceipt(receipt *types.Receipt) string {
+	for _, log := range receipt.Logs {
+		if len(log.Topics) >= 2 && log.Topics[0] == orderPlacedTopic {
+			return new(big.Int).SetBytes(log.Topics[1].Bytes()).String()
+		}
+	}
+	return ""
 }
 
 // marketPrice derives a worst-case price for a market order from the orderbook.
