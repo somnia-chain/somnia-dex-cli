@@ -21,7 +21,7 @@ func (a *app) orderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "order",
 		Short: "Manage orders",
-		Long: `Place, list, cancel, and reduce orders on DreamDEX.
+		Long: `Place, list, cancel, and reduce orders on dreamDEX.
 
 Orders are instructions to buy or sell tokens. Market orders execute immediately at
 the best available price. Limit orders rest on the order book at a specified price
@@ -42,7 +42,7 @@ func (a *app) orderPlaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "place <symbol>",
 		Short: "Place a new order",
-		Long: `Place a new order on DreamDEX. Market orders (default) execute immediately as
+		Long: `Place a new order on dreamDEX. Market orders (default) execute immediately as
 limit IOC orders priced from the current order book with a slippage tolerance.
 Limit orders rest on the book at the specified price.
 

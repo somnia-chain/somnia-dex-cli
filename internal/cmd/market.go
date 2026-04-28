@@ -14,7 +14,7 @@ func (a *app) marketsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "markets",
 		Short: "List all trading pairs",
-		Long: `List all available trading pairs on DreamDEX. Shows each market's symbol,
+		Long: `List all available trading pairs on dreamDEX. Shows each market's symbol,
 contract address, base/quote tokens, tick size, lot size, and minimum order quantity.`,
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
@@ -35,7 +35,7 @@ func (a *app) currenciesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "currencies",
 		Short: "List all supported currencies",
-		Long: `List all tokens supported by DreamDEX. Shows each currency's code, name,
+		Long: `List all tokens supported by dreamDEX. Shows each currency's code, name,
 decimal precision, and contract address.`,
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",

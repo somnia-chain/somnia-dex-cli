@@ -1,4 +1,4 @@
-// Package dreamdexcli embeds documentation for the DreamDEX CLI.
+// Package dreamdexcli embeds documentation for the dreamDEX CLI.
 package dreamdexcli
 
 import _ "embed"

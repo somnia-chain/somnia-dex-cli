@@ -1,6 +1,6 @@
-# DreamDEX CLI
+# dreamDEX CLI
 
-A non-custodial trading client for [DreamDEX](https://dreamdex.somnia.host) on the [Somnia](https://somnia.network) blockchain.
+A non-custodial trading client for [dreamDEX](https://dreamdex.io) on the [Somnia](https://somnia.network) blockchain.
 
 ## Install
 
@@ -28,7 +28,7 @@ go build -o dreamdex ./cmd/dreamdex/
 
 | Variable | Description | Default |
 |---|---|---|
-| `DREAMDEX_API_URL` | API base URL | `https://stg.dreamdex.somnia.host` |
+| `DREAMDEX_API_URL` | API base URL | `https://stg.api.dreamdex.io` |
 | `DREAMDEX_RPC_URL` | Somnia JSON-RPC URL | `https://dream-rpc.somnia.network` |
 | `DREAMDEX_PRIVATE_KEY` | Hex-encoded private key (headless/CI fallback) | — |
 | `DREAMDEX_PASSWORD` | Keystore passphrase (headless/CI fallback) | — |
@@ -143,7 +143,7 @@ dreamdex watch trades --log-level debug
 
 ### MCP server
 
-The CLI includes an [MCP](https://modelcontextprotocol.io) server via [ophis](https://github.com/njayp/ophis), allowing LLM agents to interact with DreamDEX as tool calls. The MCP server is currently designed for local (stdio) usage only.
+The CLI includes an [MCP](https://modelcontextprotocol.io) server via [ophis](https://github.com/njayp/ophis), allowing LLM agents to interact with dreamDEX as tool calls. The MCP server is currently designed for local (stdio) usage only.
 
 ```sh
 dreamdex mcp start

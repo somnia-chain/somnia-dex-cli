@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// APIError represents a structured error from the DreamDEX API.
+// APIError represents a structured error from the dreamDEX API.
 type APIError struct {
 	Status      int    `json:"status"`
 	Name        string `json:"name"`
@@ -25,7 +25,7 @@ func (e *APIError) Error() string {
 	return e.Name
 }
 
-// Client is a DreamDEX API client.
+// Client is a dreamDEX API client.
 type Client struct {
 	BaseURL string
 	Token   string

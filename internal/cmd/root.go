@@ -121,8 +121,8 @@ func exitCode(err error) int {
 func (a *app) rootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dreamdex",
-		Short: "Trade on Somnia's DreamDEX",
-		Long: `DreamDEX CLI — a non-custodial trading client for DreamDEX on Somnia.
+		Short: "Trade on Somnia's dreamDEX",
+		Long: `dreamDEX CLI — a non-custodial trading client for dreamDEX on Somnia.
 
 Keys are stored in an encrypted keystore (~/.config/dreamdex/keystore/).
 Run "dreamdex login" to import a key. For headless/CI use, set DREAMDEX_PRIVATE_KEY.
@@ -161,7 +161,7 @@ Environment variables:
 		},
 	}
 
-	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.dreamdex.somnia.host"), "API base URL")
+	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.api.dreamdex.io"), "API base URL")
 	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
 	cmd.PersistentFlags().String("log-level", "warn", "log level: debug, info, warn, error")
 	cmd.PersistentFlags().Bool("json", false, "output as JSON")
@@ -259,5 +259,3 @@ func (a *app) resolveSymbols(args []string) ([]string, error) {
 	}
 	return symbols, nil
 }
-
-

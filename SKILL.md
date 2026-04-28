@@ -1,6 +1,6 @@
-# DreamDEX CLI - LLM Skill Reference
+# dreamDEX CLI - LLM Skill Reference
 
-You are interacting with `dreamdex`, a non-custodial trading CLI for DreamDEX on the Somnia blockchain. This document describes every command, its arguments, and expected outputs so you can use the CLI effectively.
+You are interacting with `dreamdex`, a non-custodial trading CLI for dreamDEX on the Somnia blockchain. This document describes every command, its arguments, and expected outputs so you can use the CLI effectively.
 
 ## Prerequisites
 

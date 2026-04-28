@@ -15,7 +15,7 @@ func (a *app) loginCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
 		Short: "Set up keystore and authenticate",
-		Long: `Import a private key into the encrypted keystore and authenticate with DreamDEX
+		Long: `Import a private key into the encrypted keystore and authenticate with dreamDEX
 via Sign-In with Ethereum (SIWE).
 
 On first run, set DREAMDEX_PRIVATE_KEY and you will be prompted for a passphrase

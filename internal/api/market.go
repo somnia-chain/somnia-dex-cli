@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Market represents a trading pair on DreamDEX.
+// Market represents a trading pair on dreamDEX.
 type Market struct {
 	Symbol        string `json:"symbol"`
 	Contract      string `json:"contract"`
