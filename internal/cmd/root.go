@@ -126,12 +126,14 @@ func (a *app) rootCmd() *cobra.Command {
 
 Keys are stored in an encrypted keystore (~/.config/dreamdex/keystore/).
 Run "dreamdex login" to import a key. For headless/CI use, set DREAMDEX_PRIVATE_KEY.
+To skip key/SIWE auth entirely, pass --token or set DREAMDEX_TOKEN with a JWT.
 
 Environment variables:
   DREAMDEX_API_URL       API base URL (default: staging)
   DREAMDEX_RPC_URL       Somnia JSON-RPC URL
   DREAMDEX_PRIVATE_KEY   Hex-encoded private key (headless fallback)
-  DREAMDEX_PASSWORD      Keystore passphrase (headless fallback)`,
+  DREAMDEX_PASSWORD      Keystore passphrase (headless fallback)
+  DREAMDEX_TOKEN         JWT bearer token (bypasses key/SIWE auth)`,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Silence usage after arg validation so only input errors show help.
@@ -146,7 +148,10 @@ Environment variables:
 			a.client = api.NewClient(apiURL)
 			a.client.Log = a.log
 
-			if cmd.Annotations[ophis.AnnotationReadOnly] != "true" {
+			// Explicit token bypasses key loading and SIWE auth entirely.
+			if tok, _ := cmd.Flags().GetString("token"); tok != "" {
+				a.client.Token = tok
+			} else if cmd.Annotations[ophis.AnnotationReadOnly] != "true" {
 				rpcURL, _ := cmd.Flags().GetString("rpc-url")
 				key, err := loadKeyFromEnv()
 				if err != nil {
@@ -163,6 +168,7 @@ Environment variables:
 
 	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.api.dreamdex.io"), "API base URL")
 	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
+	cmd.PersistentFlags().String("token", os.Getenv("DREAMDEX_TOKEN"), "JWT bearer token (bypasses key/SIWE auth)")
 	cmd.PersistentFlags().String("log-level", "warn", "log level: debug, info, warn, error")
 	cmd.PersistentFlags().Bool("json", false, "output as JSON")
 
