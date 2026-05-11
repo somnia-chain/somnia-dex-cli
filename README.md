@@ -28,8 +28,8 @@ go build -o dreamdex ./cmd/dreamdex/
 
 | Variable | Description | Default |
 |---|---|---|
-| `DREAMDEX_API_URL` | API base URL | `https://stg.api.dreamdex.io` |
-| `DREAMDEX_RPC_URL` | Somnia JSON-RPC URL | `https://dream-rpc.somnia.network` |
+| `DREAMDEX_API_URL` | API base URL | `https://api.dreamdex.io` |
+| `DREAMDEX_RPC_URL` | Somnia JSON-RPC URL | `https://api.infra.mainnet.somnia.network` |
 | `DREAMDEX_PRIVATE_KEY` | Hex-encoded private key (headless/CI fallback) | — |
 | `DREAMDEX_PASSWORD` | Keystore passphrase (headless/CI fallback) | — |
 | `DREAMDEX_JSON` | Force JSON output (useful for MCP/scripting) | — |
@@ -131,6 +131,17 @@ Pass `--json` to any command for structured JSON output, useful for scripting an
 dreamdex markets --json
 dreamdex order list --json
 ```
+
+### Testnet
+
+Pass `--testnet` to target the Somnia Shannon testnet instead of mainnet:
+
+```sh
+dreamdex markets --testnet
+dreamdex order place SOMI:SOMUSD --side buy --amount 100 --testnet
+```
+
+This overrides the API and RPC URLs unless you set them explicitly via `--api-url`/`--rpc-url` or environment variables.
 
 ### Debug logging
 

@@ -15,6 +15,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	testnetAPIURL = "https://stg.api.dreamdex.io"
+	testnetRPCURL = "https://dream-rpc.somnia.network"
+)
+
 // Exit codes:
 //
 //	0       success
@@ -128,8 +133,10 @@ Keys are stored in an encrypted keystore (~/.config/dreamdex/keystore/).
 Run "dreamdex login" to import a key. For headless/CI use, set DREAMDEX_PRIVATE_KEY.
 To skip key/SIWE auth entirely, pass --token or set DREAMDEX_TOKEN with a JWT.
 
+Use --testnet to target the Somnia Shannon testnet instead of mainnet.
+
 Environment variables:
-  DREAMDEX_API_URL       API base URL (default: staging)
+  DREAMDEX_API_URL       API base URL (default: mainnet)
   DREAMDEX_RPC_URL       Somnia JSON-RPC URL
   DREAMDEX_PRIVATE_KEY   Hex-encoded private key (headless fallback)
   DREAMDEX_PASSWORD      Keystore passphrase (headless fallback)
@@ -138,6 +145,16 @@ Environment variables:
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Silence usage after arg validation so only input errors show help.
 			cmd.SilenceUsage = true
+
+			// --testnet overrides URLs unless explicitly set by the user.
+			if testnet, _ := cmd.Flags().GetBool("testnet"); testnet {
+				if !cmd.Flags().Changed("api-url") {
+					cmd.Flags().Set("api-url", testnetAPIURL) //nolint:errcheck
+				}
+				if !cmd.Flags().Changed("rpc-url") {
+					cmd.Flags().Set("rpc-url", testnetRPCURL) //nolint:errcheck
+				}
+			}
 
 			levelName, _ := cmd.Flags().GetString("log-level")
 			a.log = slog.New(tint.NewHandler(os.Stderr, &tint.Options{
@@ -166,8 +183,9 @@ Environment variables:
 		},
 	}
 
-	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://stg.api.dreamdex.io"), "API base URL")
-	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://dream-rpc.somnia.network"), "Somnia RPC URL")
+	cmd.PersistentFlags().String("api-url", envOr("DREAMDEX_API_URL", "https://api.dreamdex.io"), "API base URL")
+	cmd.PersistentFlags().String("rpc-url", envOr("DREAMDEX_RPC_URL", "https://api.infra.mainnet.somnia.network"), "Somnia RPC URL")
+	cmd.PersistentFlags().Bool("testnet", false, "use Somnia testnet (Shannon) URLs")
 	cmd.PersistentFlags().String("token", os.Getenv("DREAMDEX_TOKEN"), "JWT bearer token (bypasses key/SIWE auth)")
 	cmd.PersistentFlags().String("log-level", "warn", "log level: debug, info, warn, error")
 	cmd.PersistentFlags().Bool("json", false, "output as JSON")
