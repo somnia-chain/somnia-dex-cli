@@ -83,9 +83,10 @@ dreamdex candles WBTC:SOMUSD --interval 1h --limit 50
 ### Orders
 
 ```sh
-dreamdex order place SOMI:SOMUSD --side buy --amount 100
-dreamdex order place SOMI:SOMUSD --side sell --type limit --amount 50 --price 0.20
-dreamdex order list                       # all markets
+dreamdex buy 100 SOMI:SOMUSD                     # market buy (shorthand)
+dreamdex sell 50 SOMI:SOMUSD --price 0.20         # limit sell (shorthand)
+dreamdex order place SOMI:SOMUSD --side buy --amount 100   # equivalent long form
+dreamdex order list                               # all markets
 dreamdex order list SOMI:SOMUSD --status open
 dreamdex order get SOMI:SOMUSD <order-id>
 dreamdex order cancel SOMI:SOMUSD <order-id>
@@ -138,7 +139,7 @@ Pass `--testnet` to target the Somnia Shannon testnet instead of mainnet:
 
 ```sh
 dreamdex markets --testnet
-dreamdex order place SOMI:SOMUSD --side buy --amount 100 --testnet
+dreamdex buy 100 SOMI:SOMUSD --testnet
 ```
 
 This overrides the API and RPC URLs unless you set them explicitly via `--api-url`/`--rpc-url` or environment variables.

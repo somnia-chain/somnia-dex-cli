@@ -37,7 +37,9 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for dreamDEX on
 
 ### Orders (auth required)
 
-- `dreamdex order place <symbol> --side buy|sell --amount <n> [--type market|limit] [--price <n>] [--order-type normalOrder|fillOrKill|immediateOrCancel|postOnly] [--funding-source wallet|vault] [--slippage <pct>]` - Place an order. `--price` required for limit. Auto-submits token approval if needed.
+- `dreamdex buy <amount> <symbol> [--price <n>] [--order-type ...] [--funding-source wallet|vault] [--slippage <pct>]` - Buy shorthand. Market order by default; pass `--price` for limit.
+- `dreamdex sell <amount> <symbol> [--price <n>] [--order-type ...] [--funding-source wallet|vault] [--slippage <pct>]` - Sell shorthand. Market order by default; pass `--price` for limit.
+- `dreamdex order place <symbol> --side buy|sell --amount <n> [--type market|limit] [--price <n>] [--order-type normalOrder|fillOrKill|immediateOrCancel|postOnly] [--funding-source wallet|vault] [--slippage <pct>]` - Full form. `--price` required for limit. Auto-submits token approval if needed.
 - `dreamdex order list [symbol] [--status open|closed|canceled|expired|rejected]` - List orders.
 - `dreamdex order get <symbol> <order-id>` - Get single order details.
 - `dreamdex order cancel <symbol> <order-id>` - Cancel an open order on-chain.
@@ -86,15 +88,15 @@ All `watch` commands support `--timeout <duration>` (e.g. `30s`, `5m`) to auto-t
 ```sh
 # Check price and market buy
 dreamdex ticker SOMI:SOMUSD --json
-dreamdex order place SOMI:SOMUSD --side buy --amount 100
+dreamdex buy 100 SOMI:SOMUSD
 
 # Limit sell
-dreamdex order place SOMI:SOMUSD --side sell --type limit --amount 50 --price 0.20
+dreamdex sell 50 SOMI:SOMUSD --price 0.20
 
 # Vault deposit and trade
 dreamdex vault approve SOMI:SOMUSD --currency SOMUSD --amount 1000
 dreamdex vault deposit SOMI:SOMUSD --currency SOMUSD --amount 500
-dreamdex order place SOMI:SOMUSD --side buy --amount 100 --funding-source vault
+dreamdex buy 100 SOMI:SOMUSD --funding-source vault
 
 # Monitor and cancel
 dreamdex order list SOMI:SOMUSD --status open --json

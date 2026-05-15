@@ -56,10 +56,6 @@ The CLI handles token approval, signing, and transaction submission automaticall
 			ophis.AnnotationTitle: "Place order",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := a.requireEth(cmd); err != nil {
-				return err
-			}
-
 			side, _ := cmd.Flags().GetString("side")
 			typ, _ := cmd.Flags().GetString("type")
 			amount, _ := cmd.Flags().GetString("amount")
@@ -68,70 +64,7 @@ The CLI handles token approval, signing, and transaction submission automaticall
 			fundingSource, _ := cmd.Flags().GetString("funding-source")
 			slippage, _ := cmd.Flags().GetFloat64("slippage")
 
-			if typ == "limit" && price == "" {
-				return fmt.Errorf("--price is required for limit orders")
-			}
-
-			// Market orders: convert to limit IOC with orderbook-derived price.
-			if typ == "market" {
-				p, err := marketPrice(a.client, args[0], side, slippage)
-				if err != nil {
-					return fmt.Errorf("determine market price: %w", err)
-				}
-				price = p
-				typ = "limit"
-				if orderType == "" {
-					orderType = "immediateOrCancel"
-				}
-			}
-
-			wallet := a.eth.Address().Hex()
-			tx, err := a.client.PrepareOrder(args[0], &api.PrepareOrderRequest{
-				Type:          typ,
-				Side:          side,
-				Amount:        amount,
-				WalletAddress: wallet,
-				Price:         price,
-				OrderType:     orderType,
-				FundingSource: fundingSource,
-			})
-			if err != nil {
-				return fmt.Errorf("prepare order: %w", err)
-			}
-
-			if tx.Approval != nil {
-				code := tx.Approval.Token
-				if currencies, err := a.client.GetCurrencies(); err == nil {
-					for _, c := range currencies {
-						if strings.EqualFold(c.ID, tx.Approval.Token) {
-							code = c.Code
-							break
-						}
-					}
-				}
-				approveTx, err := a.client.PrepareApproval(args[0], &api.VaultActionRequest{
-					WalletAddress: wallet,
-					Currency:      code,
-					Amount:        tx.Approval.Amount,
-				})
-				if err != nil {
-					return fmt.Errorf("prepare approval: %w", err)
-				}
-				approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
-				if _, err := a.eth.SignAndSend(approveTx, approveLabel); err != nil {
-					return fmt.Errorf("token approval: %w", err)
-				}
-			}
-
-			receipt, err := a.eth.SignAndSend(tx, "Order")
-			if err != nil {
-				return err
-			}
-			if id := orderIDFromReceipt(receipt); id != "" {
-				fmt.Printf("Order ID: %s\n", id)
-				return nil
-			}
-			return &ExitError{Code: ExitNoFill, Err: fmt.Errorf("order was not placed (no fills available)")}
+			return a.placeOrder(cmd, args[0], side, typ, amount, price, orderType, fundingSource, slippage)
 		},
 	}
 	f := cmd.Flags()
@@ -285,6 +218,125 @@ func orderIDFromReceipt(receipt *types.Receipt) string {
 		}
 	}
 	return ""
+}
+
+// placeOrder is the shared implementation for order placement used by both
+// "order place" and the "buy"/"sell" shorthand commands.
+func (a *app) placeOrder(cmd *cobra.Command, symbol, side, typ, amount, price, orderType, fundingSource string, slippage float64) error {
+	if err := a.requireEth(cmd); err != nil {
+		return err
+	}
+
+	if typ == "limit" && price == "" {
+		return fmt.Errorf("--price is required for limit orders")
+	}
+
+	// Market orders: convert to limit IOC with orderbook-derived price.
+	if typ == "market" {
+		p, err := marketPrice(a.client, symbol, side, slippage)
+		if err != nil {
+			return fmt.Errorf("determine market price: %w", err)
+		}
+		price = p
+		typ = "limit"
+		if orderType == "" {
+			orderType = "immediateOrCancel"
+		}
+	}
+
+	wallet := a.eth.Address().Hex()
+	tx, err := a.client.PrepareOrder(symbol, &api.PrepareOrderRequest{
+		Type:          typ,
+		Side:          side,
+		Amount:        amount,
+		WalletAddress: wallet,
+		Price:         price,
+		OrderType:     orderType,
+		FundingSource: fundingSource,
+	})
+	if err != nil {
+		return fmt.Errorf("prepare order: %w", err)
+	}
+
+	if tx.Approval != nil {
+		code := tx.Approval.Token
+		if currencies, err := a.client.GetCurrencies(); err == nil {
+			for _, c := range currencies {
+				if strings.EqualFold(c.ID, tx.Approval.Token) {
+					code = c.Code
+					break
+				}
+			}
+		}
+		approveTx, err := a.client.PrepareApproval(symbol, &api.VaultActionRequest{
+			WalletAddress: wallet,
+			Currency:      code,
+			Amount:        tx.Approval.Amount,
+		})
+		if err != nil {
+			return fmt.Errorf("prepare approval: %w", err)
+		}
+		approveLabel := fmt.Sprintf("Approval (%s %s)", tx.Approval.Amount, code)
+		if _, err := a.eth.SignAndSend(approveTx, approveLabel); err != nil {
+			return fmt.Errorf("token approval: %w", err)
+		}
+	}
+
+	receipt, err := a.eth.SignAndSend(tx, "Order")
+	if err != nil {
+		return err
+	}
+	if id := orderIDFromReceipt(receipt); id != "" {
+		fmt.Printf("Order ID: %s\n", id)
+		return nil
+	}
+	return &ExitError{Code: ExitNoFill, Err: fmt.Errorf("order was not placed (no fills available)")}
+}
+
+// buyCmd returns the top-level "buy" shorthand command.
+func (a *app) buyCmd() *cobra.Command {
+	return a.tradeShorthand("buy")
+}
+
+// sellCmd returns the top-level "sell" shorthand command.
+func (a *app) sellCmd() *cobra.Command {
+	return a.tradeShorthand("sell")
+}
+
+// tradeShorthand builds a top-level buy/sell command: "dreamdex buy 100 STT/USDT".
+func (a *app) tradeShorthand(side string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   fmt.Sprintf("%s <amount> <symbol>", side),
+		Short: fmt.Sprintf("Place a %s order (shorthand for 'order place')", side),
+		Long: fmt.Sprintf(`Shorthand for "dreamdex order place <symbol> --side %s --amount <amount>".
+
+Defaults to a market order. Pass --price to place a limit order instead.
+All other order place flags are supported.`, side),
+		Args: cobra.ExactArgs(2),
+		Annotations: map[string]string{
+			ophis.AnnotationTitle: strings.ToUpper(side[:1]) + side[1:] + " order",
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			amount, symbol := args[0], args[1]
+			price, _ := cmd.Flags().GetString("price")
+			orderType, _ := cmd.Flags().GetString("order-type")
+			fundingSource, _ := cmd.Flags().GetString("funding-source")
+			slippage, _ := cmd.Flags().GetFloat64("slippage")
+
+			typ := "market"
+			if price != "" {
+				typ = "limit"
+			}
+
+			return a.placeOrder(cmd, symbol, side, typ, amount, price, orderType, fundingSource, slippage)
+		},
+	}
+	f := cmd.Flags()
+	f.String("price", "", "limit price (omit for market order)")
+	f.String("order-type", "", "normalOrder, fillOrKill, immediateOrCancel, postOnly")
+	f.String("funding-source", "", "wallet or vault")
+	f.Float64("slippage", 0.5, "slippage tolerance for market orders (percent)")
+	return cmd
 }
 
 // marketPrice derives a worst-case price for a market order from the orderbook.

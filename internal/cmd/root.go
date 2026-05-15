@@ -199,6 +199,8 @@ Environment variables:
 		a.candlesCmd(),
 		a.loginCmd(),
 		a.orderCmd(),
+		a.buyCmd(),
+		a.sellCmd(),
 		a.stopOrderCmd(),
 		a.vaultCmd(),
 		a.watchCmd(),
