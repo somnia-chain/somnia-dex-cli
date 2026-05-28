@@ -1,2 +1,43 @@
 [tools]
-go = "latest"
+go = "1.26"
+golangci-lint = "2"
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"
+
+# --- Dark Factory standard target interface (consumed by reusable-go-ci.yml) ---
+
+[tasks.fmt]
+description = "Check formatting (non-zero exit if changes needed)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then
+  echo "Needs formatting (run: mise run fmt-fix):"
+  echo "$unformatted"
+  exit 1
+fi
+'''
+
+[tasks.fmt-fix]
+description = "Apply formatting"
+run = "gofmt -w ."
+
+[tasks.vet]
+description = "Static analysis"
+run = "go vet ./..."
+
+[tasks.lint]
+description = "Check linting"
+run = "golangci-lint run"
+
+[tasks.lint-fix]
+description = "Apply lint autofixes"
+run = "golangci-lint run --fix"
+
+[tasks.test]
+description = "Run tests (standard target consumed by CI)"
+run = "go test ./..."
+
+[tasks.audit]
+description = "Security scan (govulncheck)"
+run = "govulncheck ./..."

@@ -1,0 +1,27 @@
+version: "2"
+
+linters:
+  default: standard
+  # `standard` = errcheck, govet, ineffassign, staticcheck, unused.
+  enable:
+    - misspell
+    - revive
+
+issues:
+  # `revive` (style: doc comments, name-stutter) is opinionated and produces
+  # backlog on legacy repos. Run it in **new-code-only** mode: golangci-lint
+  # diffs against the merge-base with origin/main and reports only newly-
+  # introduced issues. Needs the reusable workflow to check out with
+  # `fetch-depth: 0` (see DF-10).
+  #
+  # Accepted tradeoff: `new-from-merge-base` is a top-level filter, so it also
+  # scopes `standard` + `misspell` to new code. That's fine today (those pass
+  # clean on main across managed repos, so nothing is being hidden). If a future
+  # rule addition starts silently masking findings on unchanged code, split this
+  # into two golangci-lint runs — unfiltered baseline + revive-only new-only.
+  new-from-merge-base: origin/main
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

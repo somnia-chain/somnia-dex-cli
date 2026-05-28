@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Thin wrapper consuming the Dark Factory reusable Go CI lane. The standard
+# targets it runs (fmt / vet / lint / test / audit) are defined in this repo's
+# mise.toml.
+jobs:
+  ci:
+    uses: somnia-chain/darkfactory-control/.github/workflows/reusable-go-ci.yml@main
