@@ -36,7 +36,7 @@ func (a *app) vaultBalanceCmd() *cobra.Command {
 		Short: "Show vault balances",
 		Long: `Show token balances held in the vault for a given market. Defaults to your
 wallet address if --wallet is not specified.`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Get vault balances",
 		},

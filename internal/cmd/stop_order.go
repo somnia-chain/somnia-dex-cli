@@ -47,7 +47,7 @@ lte for <=).
 Examples:
   Stop-loss:      --side sell --trigger-operator lte --trigger-price 0.15
   Breakout entry: --side buy  --trigger-operator gte --trigger-price 0.25`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Place stop order",
 		},
@@ -101,7 +101,7 @@ func (a *app) stopOrderListCmd() *cobra.Command {
 		Short: "List stop orders (all markets if no symbol given)",
 		Long: `List stop orders for one or all markets. Optionally filter by status: pending,
 triggered, canceled, or failed.`,
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "List stop orders",
 		},

@@ -58,7 +58,7 @@ func (a *app) orderbookCmd() *cobra.Command {
 		Short: "Show order book",
 		Long: `Display the order book for a market, showing current bid and ask price levels
 with their quantities. Use --depth to limit the number of levels shown per side.`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "Show order book",
@@ -83,7 +83,7 @@ func (a *app) tickerCmd() *cobra.Command {
 		Short: "Show 24h market statistics (all markets if no symbol given)",
 		Long: `Show 24-hour OHLCV statistics for one or all markets, including open, high,
 low, close prices, and total trading volume.`,
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "Get 24h ticker",
@@ -123,7 +123,7 @@ func (a *app) tradesCmd() *cobra.Command {
 		Short: "Show recent trades (all markets if no symbol given)",
 		Long: `Show recently executed trades for one or all markets. Each trade includes the
 price, quantity, and side (buy/sell).`,
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "List recent trades",
@@ -156,7 +156,7 @@ func (a *app) candlesCmd() *cobra.Command {
 		Short: "Show OHLCV candle data",
 		Long: `Show OHLCV candlestick data for a market at a specified time interval. Useful
 for analysing price trends over time.`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationReadOnly: "true",
 			ophis.AnnotationTitle:    "Get OHLCV candles",

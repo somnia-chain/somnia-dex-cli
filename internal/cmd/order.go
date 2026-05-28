@@ -51,7 +51,7 @@ entirely or cancel), immediateOrCancel (fill what you can, cancel the rest),
 postOnly (only accepted if it rests on the book).
 
 The CLI handles token approval, signing, and transaction submission automatically.`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Place order",
 		},
@@ -87,7 +87,7 @@ func (a *app) orderListCmd() *cobra.Command {
 		Short: "List orders (all markets if no symbol given)",
 		Long: `List orders for one or all markets. Optionally filter by status: open, closed,
 canceled, expired, or rejected.`,
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "List orders",
 		},
@@ -183,7 +183,7 @@ func (a *app) orderReduceCmd() *cobra.Command {
 		Short: "Reduce an open order's remaining quantity",
 		Long: `Reduce an open order's remaining quantity without cancelling it. Signs and
 submits an amendment transaction on-chain.`,
-		Args:  cobra.ExactArgs(2),
+		Args: cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Reduce order",
 		},
@@ -401,4 +401,3 @@ func marketPrice(c *api.Client, symbol, side string, slippagePct float64) (strin
 	}
 	return strconv.FormatFloat(rounded, 'f', decimals, 64), nil
 }
-
