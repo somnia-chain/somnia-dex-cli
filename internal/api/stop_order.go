@@ -71,11 +71,24 @@ func (c *Client) GetStopOrders(symbol, status string) ([]StopOrder, error) {
 	return resp.StopOrders, c.do("GET", path, q, nil, &resp)
 }
 
-// GetStopOrder fetches a single stop order by ID.
-func (c *Client) GetStopOrder(symbol, id string) (*StopOrder, error) {
-	var resp StopOrder
-	path := fmt.Sprintf("/v0/markets/%s/stop-orders/%s", url.PathEscape(symbol), url.PathEscape(id))
-	return &resp, c.do("GET", path, nil, nil, &resp)
+// StopOrderAuthorized reports whether the authenticated wallet has approved the
+// stop-order registry to place triggered orders on its behalf (pool.isOperatorAuthorized
+// for placeOrderFor). The owner is taken from the bearer token.
+func (c *Client) StopOrderAuthorized(symbol string) (bool, error) {
+	var resp struct {
+		Authorized bool `json:"authorized"`
+	}
+	path := fmt.Sprintf("/v0/markets/%s/stop-orders/authorization", url.PathEscape(symbol))
+	return resp.Authorized, c.do("GET", path, nil, nil, &resp)
+}
+
+// PrepareStopOrderApproval returns the one-time unsigned transaction approving the
+// stop-order registry as an operator on the market's pool (setOperatorApprovalForPool).
+// The owner is taken from the bearer token.
+func (c *Client) PrepareStopOrderApproval(symbol string) (*Transaction, error) {
+	var resp Transaction
+	path := fmt.Sprintf("/v0/markets/%s/stop-orders/approve", url.PathEscape(symbol))
+	return &resp, c.do("POST", path, nil, nil, &resp)
 }
 
 // CancelStopOrder returns an unsigned transaction to cancel a pending stop order.

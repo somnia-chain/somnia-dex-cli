@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/njayp/ophis"
 	"github.com/somnia-chain/somnia-dex-cli/internal/api"
@@ -63,13 +64,31 @@ Examples:
 				return fmt.Errorf("--price is required for limit stop orders")
 			}
 
+			// The stop-order registry places the triggered order on the owner's
+			// behalf, so it must hold a placeOrderFor approval on the pool. Send
+			// the one-time approval first if it isn't already authorized.
+			wallet := a.eth.Address().Hex()
+			authorized, err := a.client.StopOrderAuthorized(args[0])
+			if err != nil {
+				return fmt.Errorf("check stop-order authorization: %w", err)
+			}
+			if !authorized {
+				approveTx, err := a.client.PrepareStopOrderApproval(args[0])
+				if err != nil {
+					return fmt.Errorf("prepare stop-order approval: %w", err)
+				}
+				if _, err := a.eth.SignAndSend(approveTx, "Stop-order approval"); err != nil {
+					return fmt.Errorf("stop-order approval: %w", err)
+				}
+			}
+
 			tx, err := a.client.PrepareStopOrder(args[0], &api.PrepareStopOrderRequest{
 				Type:            typ,
 				Side:            side,
 				Amount:          amount,
 				TriggerPrice:    triggerPrice,
 				TriggerOperator: triggerOp,
-				WalletAddress:   a.eth.Address().Hex(),
+				WalletAddress:   wallet,
 				Price:           price,
 			})
 			if err != nil {
@@ -92,6 +111,20 @@ Examples:
 	cmd.MarkFlagRequired("trigger-price")
 	cmd.MarkFlagRequired("trigger-operator")
 	return cmd
+}
+
+// findStopOrder locates a single stop order by id via the list endpoint. The
+// REST API exposes no single-order GET for stop orders, so callers that need one
+// order's current state must filter the list. Returns a clear error if absent.
+func (a *app) findStopOrder(symbol, id string) (*api.StopOrder, error) {
+	orders, err := a.client.GetStopOrders(symbol, "")
+	if err != nil {
+		return nil, err
+	}
+	if i := slices.IndexFunc(orders, func(o api.StopOrder) bool { return o.ID == id }); i >= 0 {
+		return &orders[i], nil
+	}
+	return nil, fmt.Errorf("stop order %s not found for %s", id, symbol)
 }
 
 // stopOrderListCmd lists stop orders for one or all markets.
@@ -144,7 +177,19 @@ func (a *app) stopOrderCancelCmd() *cobra.Command {
 			ophis.AnnotationDestructive: "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tx, err := a.client.CancelStopOrder(args[0], args[1])
+			symbol, id := args[0], args[1]
+
+			// Only pending stop orders are cancellable; triggered/canceled/failed
+			// orders no longer exist in the registry and would revert on-chain.
+			o, err := a.findStopOrder(symbol, id)
+			if err != nil {
+				return err
+			}
+			if !strings.EqualFold(o.Status, "pending") {
+				return fmt.Errorf("stop order %s is %s, not pending; only pending stop orders can be cancelled", id, o.Status)
+			}
+
+			tx, err := a.client.CancelStopOrder(symbol, id)
 			if err != nil {
 				return err
 			}
