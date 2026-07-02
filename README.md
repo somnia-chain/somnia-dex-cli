@@ -78,6 +78,7 @@ dreamdex orderbook SOMI:SOMUSD --depth 5  # single market, 5 levels
 dreamdex ticker                           # 24h stats for all markets
 dreamdex trades WETH:SOMUSD --limit 10    # recent trades
 dreamdex candles WBTC:SOMUSD --interval 1h --limit 50
+dreamdex volume SOMI:SOMUSD               # traded volume over a window
 ```
 
 ### Orders
@@ -91,6 +92,13 @@ dreamdex order list SOMI:SOMUSD --status open
 dreamdex order get SOMI:SOMUSD <order-id>
 dreamdex order cancel SOMI:SOMUSD <order-id>
 dreamdex order reduce SOMI:SOMUSD <order-id> --quantity 25
+dreamdex mytrades                                 # your trades across markets
+dreamdex mytrades SOMI:SOMUSD --limit 50          # your trades on one market
+
+# Builder fees: approve a builder, then tag orders with it
+dreamdex builder max-fee SOMI:SOMUSD              # protocol fee cap (BPS_TIMES_1K)
+dreamdex builder approve SOMI:SOMUSD --builder 0xBUILDER --max-fee 1000
+dreamdex buy 100 SOMI:SOMUSD --builder 0xBUILDER --builder-fee 1000
 ```
 
 ### Stop orders
@@ -102,6 +110,17 @@ dreamdex stoporder place SOMI:SOMUSD --side buy --type limit --amount 50 --price
 dreamdex stoporder list                  # all markets
 dreamdex stoporder list SOMI:SOMUSD --status pending
 dreamdex stoporder cancel SOMI:SOMUSD <id>
+dreamdex stoporder authorization SOMI:SOMUSD   # is the operator authorized?
+dreamdex stoporder approve SOMI:SOMUSD         # authorize operator (auto-run on first place)
+```
+
+### Account & analytics
+
+```sh
+dreamdex portfolio --timeframe 30d              # PnL, return, volume, fees saved
+dreamdex wallet balance                          # your balances across markets
+dreamdex wallet volume 0xWALLET                  # traded volume per market
+dreamdex wallet smart-wallets 0xWALLET           # smart wallets for an EOA
 ```
 
 ### Vault

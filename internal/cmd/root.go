@@ -196,13 +196,18 @@ Environment variables:
 		a.orderbookCmd(),
 		a.tickerCmd(),
 		a.tradesCmd(),
+		a.myTradesCmd(),
 		a.candlesCmd(),
+		a.volumeCmd(),
 		a.loginCmd(),
 		a.orderCmd(),
 		a.buyCmd(),
 		a.sellCmd(),
 		a.stopOrderCmd(),
+		a.builderCmd(),
 		a.vaultCmd(),
+		a.walletCmd(),
+		a.portfolioCmd(),
 		a.watchCmd(),
 		skillCmd(),
 		ophis.Command(&ophis.Config{
@@ -268,6 +273,13 @@ func printResult(cmd *cobra.Command, v any) error {
 		tbl.Print()
 	}
 	return nil
+}
+
+// printCursorHint notes to stderr that more results are available, for non-JSON output.
+func printCursorHint(cmd *cobra.Command, next string) {
+	if next != "" && !isJSON(cmd) {
+		fmt.Fprintf(os.Stderr, "More results available; pass --cursor %s\n", next)
+	}
 }
 
 // resolveSymbols returns args if non-empty, otherwise fetches all market symbols.

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -48,15 +49,17 @@ func (o Orders) Table() [][]string {
 
 // PrepareOrderRequest is the request body for preparing a new order.
 type PrepareOrderRequest struct {
-	Type               string `json:"type"`
-	Side               string `json:"side"`
-	Amount             string `json:"amount"`
-	WalletAddress      string `json:"walletAddress"`
-	Price              string `json:"price,omitempty"`
-	OrderType          string `json:"orderType,omitempty"`
-	FundingSource      string `json:"fundingSource,omitempty"`
-	SelfMatchingOption string `json:"selfMatchingOption,omitempty"`
-	ExpiresAt          int64  `json:"expiresAt,omitempty"`
+	Type                 string `json:"type"`
+	Side                 string `json:"side"`
+	Amount               string `json:"amount"`
+	WalletAddress        string `json:"walletAddress"`
+	Price                string `json:"price,omitempty"`
+	OrderType            string `json:"orderType,omitempty"`
+	FundingSource        string `json:"fundingSource,omitempty"`
+	SelfMatchingOption   string `json:"selfMatchingOption,omitempty"`
+	ExpiresAt            int64  `json:"expiresAt,omitempty"`
+	Builder              string `json:"builder,omitempty"`
+	BuilderFeeBpsTimes1k int64  `json:"builderFeeBpsTimes1k,omitempty"`
 }
 
 // PrepareOrder returns an unsigned transaction for placing an order on the given market.
@@ -77,6 +80,29 @@ func (c *Client) GetOrders(symbol, status string) ([]Order, error) {
 	}
 	path := fmt.Sprintf("/v0/markets/%s/orders", url.PathEscape(symbol))
 	return resp.Orders, c.do("GET", path, q, nil, &resp)
+}
+
+// GetAllOrders lists the authenticated wallet's orders across markets, optionally
+// filtered by symbols and status. Returns the page of orders and the next cursor.
+func (c *Client) GetAllOrders(symbols []string, status string, limit int, cursor string) ([]Order, string, error) {
+	q := url.Values{}
+	for _, s := range symbols {
+		q.Add("symbols", s)
+	}
+	if status != "" {
+		q.Set("status", status)
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	var resp struct {
+		Orders     []Order `json:"orders"`
+		NextCursor string  `json:"nextCursor"`
+	}
+	return resp.Orders, resp.NextCursor, c.do("GET", "/v0/orders", q, nil, &resp)
 }
 
 // GetOrder returns details for a single order.

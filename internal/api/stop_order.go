@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -83,4 +84,45 @@ func (c *Client) CancelStopOrder(symbol, id string) (*Transaction, error) {
 	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/stop-orders/%s", url.PathEscape(symbol), url.PathEscape(id))
 	return &resp, c.do("DELETE", path, nil, nil, &resp)
+}
+
+// GetAllStopOrders lists the authenticated wallet's stop orders across markets, optionally
+// filtered by symbols and status. Returns the page of stop orders and the next cursor.
+func (c *Client) GetAllStopOrders(symbols []string, status string, limit int, cursor string) ([]StopOrder, string, error) {
+	q := url.Values{}
+	for _, s := range symbols {
+		q.Add("symbols", s)
+	}
+	if status != "" {
+		q.Set("status", status)
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	var resp struct {
+		StopOrders []StopOrder `json:"stopOrders"`
+		NextCursor string      `json:"nextCursor"`
+	}
+	return resp.StopOrders, resp.NextCursor, c.do("GET", "/v0/stop-orders", q, nil, &resp)
+}
+
+// GetStopOrderAuthorization reports whether the wallet has granted the market's stop-order
+// registry operator permission to place orders on its behalf.
+func (c *Client) GetStopOrderAuthorization(symbol string) (bool, error) {
+	var resp struct {
+		Authorized bool `json:"authorized"`
+	}
+	path := fmt.Sprintf("/v0/markets/%s/stop-orders/authorization", url.PathEscape(symbol))
+	return resp.Authorized, c.do("GET", path, nil, nil, &resp)
+}
+
+// PrepareStopOrderApproval returns an unsigned transaction granting the stop-order registry
+// operator permission to place orders on the wallet's behalf.
+func (c *Client) PrepareStopOrderApproval(symbol string) (*Transaction, error) {
+	var resp Transaction
+	path := fmt.Sprintf("/v0/markets/%s/stop-orders/approve", url.PathEscape(symbol))
+	return &resp, c.do("POST", path, nil, nil, &resp)
 }

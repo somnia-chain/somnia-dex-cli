@@ -123,7 +123,8 @@ type Ticker struct {
 	Volume    string `json:"volume"`
 }
 
-// Trade represents a completed trade on a market.
+// Trade represents a completed trade on a market. Maker and Taker are only populated
+// for privileged reads (bearer token with the trades:read_any scope).
 type Trade struct {
 	ID        string `json:"id"`
 	Timestamp int64  `json:"timestamp"`
@@ -132,6 +133,8 @@ type Trade struct {
 	Price     string `json:"price"`
 	Amount    string `json:"amount"`
 	Cost      string `json:"cost"`
+	Maker     string `json:"maker,omitempty"`
+	Taker     string `json:"taker,omitempty"`
 }
 
 type Trades struct {
@@ -218,6 +221,54 @@ func (c *Client) GetTicker(symbol string) ([]Ticker, error) {
 	return resp.Symbols, c.do("GET", path, nil, nil, &resp)
 }
 
+// GetTickers returns 24-hour statistics for the given symbols, or all markets when symbols is empty.
+func (c *Client) GetTickers(symbols []string) ([]Ticker, error) {
+	q := url.Values{}
+	for _, s := range symbols {
+		q.Add("symbols", s)
+	}
+	var resp struct {
+		Symbols []Ticker `json:"symbols"`
+	}
+	return resp.Symbols, c.do("GET", "/v0/tickers", q, nil, &resp)
+}
+
+// MarketVolume holds traded volume for a single market over a time window.
+type MarketVolume struct {
+	Symbol         string `json:"symbol"`
+	Since          int64  `json:"since"`
+	Until          int64  `json:"until"`
+	BaseVolume     string `json:"baseVolume"`
+	BaseVolumeRaw  string `json:"baseVolumeRaw"`
+	QuoteVolume    string `json:"quoteVolume"`
+	QuoteVolumeRaw string `json:"quoteVolumeRaw"`
+}
+
+func (v MarketVolume) JSON() any { return v }
+
+func (v MarketVolume) Table() [][]string {
+	return [][]string{
+		{"Symbol", "Base Volume", "Quote Volume", "Since", "Until"},
+		{v.Symbol, v.BaseVolume, v.QuoteVolume,
+			time.UnixMilli(v.Since).Format(time.RFC3339),
+			time.UnixMilli(v.Until).Format(time.RFC3339)},
+	}
+}
+
+// GetMarketVolume returns traded volume for a market over an optional [since, until) window (unix ms).
+func (c *Client) GetMarketVolume(symbol string, since, until int64) (*MarketVolume, error) {
+	q := url.Values{}
+	if since > 0 {
+		q.Set("since", strconv.FormatInt(since, 10))
+	}
+	if until > 0 {
+		q.Set("until", strconv.FormatInt(until, 10))
+	}
+	var resp MarketVolume
+	path := fmt.Sprintf("/v0/markets/%s/volume", url.PathEscape(symbol))
+	return &resp, c.do("GET", path, q, nil, &resp)
+}
+
 // GetTrades returns recent trades for a market, optionally filtered by timestamp and count.
 func (c *Client) GetTrades(symbol string, since int64, limit int) ([]Trade, error) {
 	q := url.Values{}
@@ -232,6 +283,65 @@ func (c *Client) GetTrades(symbol string, since int64, limit int) ([]Trade, erro
 	}
 	path := fmt.Sprintf("/v0/markets/%s/trades", url.PathEscape(symbol))
 	return resp.Trades, c.do("GET", path, q, nil, &resp)
+}
+
+// GetMyTrades returns the authenticated wallet's trades for a market. Returns the page and next cursor.
+func (c *Client) GetMyTrades(symbol string, since int64, limit int, cursor string) ([]Trade, string, error) {
+	q := tradeQuery(since, limit, cursor)
+	var resp struct {
+		Trades     []Trade `json:"trades"`
+		NextCursor string  `json:"nextCursor"`
+	}
+	path := fmt.Sprintf("/v0/markets/%s/trades/mine", url.PathEscape(symbol))
+	return resp.Trades, resp.NextCursor, c.do("GET", path, q, nil, &resp)
+}
+
+// GetAllMyTrades returns the authenticated wallet's trades across markets, optionally filtered by symbols.
+func (c *Client) GetAllMyTrades(symbols []string, since int64, limit int, cursor string) ([]Trade, string, error) {
+	q := tradeQuery(since, limit, cursor)
+	for _, s := range symbols {
+		q.Add("symbols", s)
+	}
+	var resp struct {
+		Trades     []Trade `json:"trades"`
+		NextCursor string  `json:"nextCursor"`
+	}
+	return resp.Trades, resp.NextCursor, c.do("GET", "/v0/trades", q, nil, &resp)
+}
+
+// GetTraderTrades returns trades for an arbitrary wallet on a market (privileged: requires the
+// trades:read_any scope). Filter by side with as = "maker" or "taker".
+func (c *Client) GetTraderTrades(symbol, address string, since, until int64, as string) ([]Trade, error) {
+	q := url.Values{}
+	if since > 0 {
+		q.Set("since", strconv.FormatInt(since, 10))
+	}
+	if until > 0 {
+		q.Set("until", strconv.FormatInt(until, 10))
+	}
+	if as != "" {
+		q.Set("as", as)
+	}
+	var resp struct {
+		Trades []Trade `json:"trades"`
+	}
+	path := fmt.Sprintf("/v0/markets/%s/trades/%s", url.PathEscape(symbol), url.PathEscape(address))
+	return resp.Trades, c.do("GET", path, q, nil, &resp)
+}
+
+// tradeQuery builds the common since/limit/cursor query for trade listings.
+func tradeQuery(since int64, limit int, cursor string) url.Values {
+	q := url.Values{}
+	if since > 0 {
+		q.Set("since", strconv.FormatInt(since, 10))
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	return q
 }
 
 // GetCandles returns OHLCV candle data for a market at the given interval.

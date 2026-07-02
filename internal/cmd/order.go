@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -51,7 +50,7 @@ entirely or cancel), immediateOrCancel (fill what you can, cancel the rest),
 postOnly (only accepted if it rests on the book).
 
 The CLI handles token approval, signing, and transaction submission automatically.`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Place order",
 		},
@@ -63,8 +62,10 @@ The CLI handles token approval, signing, and transaction submission automaticall
 			orderType, _ := cmd.Flags().GetString("order-type")
 			fundingSource, _ := cmd.Flags().GetString("funding-source")
 			slippage, _ := cmd.Flags().GetFloat64("slippage")
+			builder, _ := cmd.Flags().GetString("builder")
+			builderFee, _ := cmd.Flags().GetInt64("builder-fee")
 
-			return a.placeOrder(cmd, args[0], side, typ, amount, price, orderType, fundingSource, slippage)
+			return a.placeOrder(cmd, args[0], side, typ, amount, price, orderType, fundingSource, slippage, builder, builderFee)
 		},
 	}
 	f := cmd.Flags()
@@ -75,6 +76,8 @@ The CLI handles token approval, signing, and transaction submission automaticall
 	f.String("order-type", "", "normalOrder, fillOrKill, immediateOrCancel, postOnly")
 	f.String("funding-source", "", "wallet or vault")
 	f.Float64("slippage", 0.5, "slippage tolerance for market orders (percent)")
+	f.String("builder", "", "builder address to tag the order with (requires prior 'builder approve')")
+	f.Int64("builder-fee", 0, "per-order builder fee in BPS_TIMES_1K (required and >0 when --builder is set)")
 	cmd.MarkFlagRequired("side")
 	cmd.MarkFlagRequired("amount")
 	return cmd
@@ -87,31 +90,28 @@ func (a *app) orderListCmd() *cobra.Command {
 		Short: "List orders (all markets if no symbol given)",
 		Long: `List orders for one or all markets. Optionally filter by status: open, closed,
 canceled, expired, or rejected.`,
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "List orders",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			symbols, err := a.resolveSymbols(args)
-			if err != nil {
+			if err := a.requireAuth(cmd); err != nil {
 				return err
 			}
 			status, _ := cmd.Flags().GetString("status")
-			var all []api.Order
-			for _, sym := range symbols {
-				orders, err := a.client.GetOrders(sym, status)
-				if err != nil {
-					return err
-				}
-				all = append(all, orders...)
+			limit, _ := cmd.Flags().GetInt("limit")
+			cursor, _ := cmd.Flags().GetString("cursor")
+			orders, next, err := a.client.GetAllOrders(args, status, limit, cursor)
+			if err != nil {
+				return err
 			}
-			slices.SortFunc(all, func(a, b api.Order) int {
-				return int(a.CreatedAt - b.CreatedAt)
-			})
-			return printResult(cmd, api.Orders{Orders: all})
+			printCursorHint(cmd, next)
+			return printResult(cmd, api.Orders{Orders: orders})
 		},
 	}
 	cmd.Flags().String("status", "", "filter: open, closed, canceled, expired, rejected")
+	cmd.Flags().Int("limit", 0, "max orders per page (server default 100, max 1000)")
+	cmd.Flags().String("cursor", "", "pagination cursor from a previous page")
 	return cmd
 }
 
@@ -183,7 +183,7 @@ func (a *app) orderReduceCmd() *cobra.Command {
 		Short: "Reduce an open order's remaining quantity",
 		Long: `Reduce an open order's remaining quantity without cancelling it. Signs and
 submits an amendment transaction on-chain.`,
-		Args:  cobra.ExactArgs(2),
+		Args: cobra.ExactArgs(2),
 		Annotations: map[string]string{
 			ophis.AnnotationTitle: "Reduce order",
 		},
@@ -222,13 +222,16 @@ func orderIDFromReceipt(receipt *types.Receipt) string {
 
 // placeOrder is the shared implementation for order placement used by both
 // "order place" and the "buy"/"sell" shorthand commands.
-func (a *app) placeOrder(cmd *cobra.Command, symbol, side, typ, amount, price, orderType, fundingSource string, slippage float64) error {
+func (a *app) placeOrder(cmd *cobra.Command, symbol, side, typ, amount, price, orderType, fundingSource string, slippage float64, builder string, builderFee int64) error {
 	if err := a.requireEth(cmd); err != nil {
 		return err
 	}
 
 	if typ == "limit" && price == "" {
 		return fmt.Errorf("--price is required for limit orders")
+	}
+	if builder != "" && builderFee <= 0 {
+		return fmt.Errorf("--builder-fee is required and must be > 0 when --builder is set")
 	}
 
 	// Market orders: convert to limit IOC with orderbook-derived price.
@@ -246,13 +249,15 @@ func (a *app) placeOrder(cmd *cobra.Command, symbol, side, typ, amount, price, o
 
 	wallet := a.eth.Address().Hex()
 	tx, err := a.client.PrepareOrder(symbol, &api.PrepareOrderRequest{
-		Type:          typ,
-		Side:          side,
-		Amount:        amount,
-		WalletAddress: wallet,
-		Price:         price,
-		OrderType:     orderType,
-		FundingSource: fundingSource,
+		Type:                 typ,
+		Side:                 side,
+		Amount:               amount,
+		WalletAddress:        wallet,
+		Price:                price,
+		OrderType:            orderType,
+		FundingSource:        fundingSource,
+		Builder:              builder,
+		BuilderFeeBpsTimes1k: builderFee,
 	})
 	if err != nil {
 		return fmt.Errorf("prepare order: %w", err)
@@ -322,13 +327,15 @@ All other order place flags are supported.`, side),
 			orderType, _ := cmd.Flags().GetString("order-type")
 			fundingSource, _ := cmd.Flags().GetString("funding-source")
 			slippage, _ := cmd.Flags().GetFloat64("slippage")
+			builder, _ := cmd.Flags().GetString("builder")
+			builderFee, _ := cmd.Flags().GetInt64("builder-fee")
 
 			typ := "market"
 			if price != "" {
 				typ = "limit"
 			}
 
-			return a.placeOrder(cmd, symbol, side, typ, amount, price, orderType, fundingSource, slippage)
+			return a.placeOrder(cmd, symbol, side, typ, amount, price, orderType, fundingSource, slippage, builder, builderFee)
 		},
 	}
 	f := cmd.Flags()
@@ -336,6 +343,8 @@ All other order place flags are supported.`, side),
 	f.String("order-type", "", "normalOrder, fillOrKill, immediateOrCancel, postOnly")
 	f.String("funding-source", "", "wallet or vault")
 	f.Float64("slippage", 0.5, "slippage tolerance for market orders (percent)")
+	f.String("builder", "", "builder address to tag the order with (requires prior 'builder approve')")
+	f.Int64("builder-fee", 0, "per-order builder fee in BPS_TIMES_1K (required and >0 when --builder is set)")
 	return cmd
 }
 
@@ -401,4 +410,3 @@ func marketPrice(c *api.Client, symbol, side string, slippagePct float64) (strin
 	}
 	return strconv.FormatFloat(rounded, 'f', decimals, 64), nil
 }
-
