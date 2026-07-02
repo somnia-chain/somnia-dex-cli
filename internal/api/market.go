@@ -18,6 +18,7 @@ type Market struct {
 	TickSize      string `json:"tickSize"`
 	LotSize       string `json:"lotSize"`
 	MinQuantity   string `json:"minQuantity"`
+	StopRegistry  string `json:"stopRegistry,omitempty"`
 }
 
 type Markets struct {
@@ -66,7 +67,6 @@ type PriceLevel struct {
 type OrderBook struct {
 	Symbol    string       `json:"symbol"`
 	Timestamp int64        `json:"timestamp"`
-	Nonce     string       `json:"nonce"`
 	Bids      []PriceLevel `json:"bids"`
 	Asks      []PriceLevel `json:"asks"`
 }

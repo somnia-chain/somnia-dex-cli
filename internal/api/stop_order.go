@@ -48,7 +48,6 @@ type PrepareStopOrderRequest struct {
 	Amount          string `json:"amount"`
 	TriggerPrice    string `json:"triggerPrice"`
 	TriggerOperator string `json:"triggerOperator"`
-	WalletAddress   string `json:"walletAddress"`
 	Price           string `json:"price,omitempty"`
 }
 

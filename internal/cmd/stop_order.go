@@ -74,7 +74,6 @@ Examples:
 				Amount:          amount,
 				TriggerPrice:    triggerPrice,
 				TriggerOperator: triggerOp,
-				WalletAddress:   a.eth.Address().Hex(),
 				Price:           price,
 			})
 			if err != nil {

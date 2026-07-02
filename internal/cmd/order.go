@@ -136,8 +136,11 @@ func (a *app) orderGetCmd() *cobra.Command {
 			fmt.Printf("Symbol:    %s\n", o.Symbol)
 			fmt.Printf("Order:     %s\n", o.ID)
 			fmt.Printf("Status:    %s\n", o.Status)
-			fmt.Printf("Type:      %s %s\n", o.Side, o.Type)
+			fmt.Printf("Side:      %s\n", o.Side)
 			fmt.Printf("Price:     %s\n", o.Price)
+			if o.ExecutionPrice != "" {
+				fmt.Printf("Exec:      %s\n", o.ExecutionPrice)
+			}
 			fmt.Printf("Amount:    %s\n", o.Amount)
 			fmt.Printf("Filled:    %s\n", o.Filled)
 			fmt.Printf("Remaining: %s\n", o.Remaining)
@@ -252,7 +255,6 @@ func (a *app) placeOrder(cmd *cobra.Command, symbol, side, typ, amount, price, o
 		Type:                 typ,
 		Side:                 side,
 		Amount:               amount,
-		WalletAddress:        wallet,
 		Price:                price,
 		OrderType:            orderType,
 		FundingSource:        fundingSource,
