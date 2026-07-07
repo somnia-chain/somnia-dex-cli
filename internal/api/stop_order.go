@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -47,7 +48,6 @@ type PrepareStopOrderRequest struct {
 	Amount          string `json:"amount"`
 	TriggerPrice    string `json:"triggerPrice"`
 	TriggerOperator string `json:"triggerOperator"`
-	WalletAddress   string `json:"walletAddress"`
 	Price           string `json:"price,omitempty"`
 }
 
@@ -71,10 +71,39 @@ func (c *Client) GetStopOrders(symbol, status string) ([]StopOrder, error) {
 	return resp.StopOrders, c.do("GET", path, q, nil, &resp)
 }
 
-// StopOrderAuthorized reports whether the authenticated wallet has approved the
-// stop-order registry to place triggered orders on its behalf (pool.isOperatorAuthorized
-// for placeOrderFor). The owner is taken from the bearer token.
-func (c *Client) StopOrderAuthorized(symbol string) (bool, error) {
+// CancelStopOrder returns an unsigned transaction to cancel a pending stop order.
+func (c *Client) CancelStopOrder(symbol, id string) (*Transaction, error) {
+	var resp Transaction
+	path := fmt.Sprintf("/v0/markets/%s/stop-orders/%s", url.PathEscape(symbol), url.PathEscape(id))
+	return &resp, c.do("DELETE", path, nil, nil, &resp)
+}
+
+// GetAllStopOrders lists the authenticated wallet's stop orders across markets, optionally
+// filtered by symbols and status. Returns the page of stop orders and the next cursor.
+func (c *Client) GetAllStopOrders(symbols []string, status string, limit int, cursor string) ([]StopOrder, string, error) {
+	q := url.Values{}
+	for _, s := range symbols {
+		q.Add("symbols", s)
+	}
+	if status != "" {
+		q.Set("status", status)
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.Itoa(limit))
+	}
+	if cursor != "" {
+		q.Set("cursor", cursor)
+	}
+	var resp struct {
+		StopOrders []StopOrder `json:"stopOrders"`
+		NextCursor string      `json:"nextCursor"`
+	}
+	return resp.StopOrders, resp.NextCursor, c.do("GET", "/v0/stop-orders", q, nil, &resp)
+}
+
+// GetStopOrderAuthorization reports whether the wallet has granted the market's stop-order
+// registry operator permission to place orders on its behalf.
+func (c *Client) GetStopOrderAuthorization(symbol string) (bool, error) {
 	var resp struct {
 		Authorized bool `json:"authorized"`
 	}
@@ -82,18 +111,10 @@ func (c *Client) StopOrderAuthorized(symbol string) (bool, error) {
 	return resp.Authorized, c.do("GET", path, nil, nil, &resp)
 }
 
-// PrepareStopOrderApproval returns the one-time unsigned transaction approving the
-// stop-order registry as an operator on the market's pool (setOperatorApprovalForPool).
-// The owner is taken from the bearer token.
+// PrepareStopOrderApproval returns an unsigned transaction granting the stop-order registry
+// operator permission to place orders on the wallet's behalf.
 func (c *Client) PrepareStopOrderApproval(symbol string) (*Transaction, error) {
 	var resp Transaction
 	path := fmt.Sprintf("/v0/markets/%s/stop-orders/approve", url.PathEscape(symbol))
 	return &resp, c.do("POST", path, nil, nil, &resp)
-}
-
-// CancelStopOrder returns an unsigned transaction to cancel a pending stop order.
-func (c *Client) CancelStopOrder(symbol, id string) (*Transaction, error) {
-	var resp Transaction
-	path := fmt.Sprintf("/v0/markets/%s/stop-orders/%s", url.PathEscape(symbol), url.PathEscape(id))
-	return &resp, c.do("DELETE", path, nil, nil, &resp)
 }

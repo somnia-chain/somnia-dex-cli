@@ -30,6 +30,7 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for dreamDEX on
 - `dreamdex ticker [symbol]` - 24-hour OHLCV statistics.
 - `dreamdex trades [symbol] [--limit N]` - Recent trades (default 20).
 - `dreamdex candles <symbol> [--interval 1m|5m|15m|1h|4h|1d] [--limit N]` - OHLCV candles (default 1h, 20).
+- `dreamdex volume <symbol> [--since <ms>] [--until <ms>]` - Base/quote trading volume over a window.
 
 ### Authentication
 
@@ -37,19 +38,28 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for dreamDEX on
 
 ### Orders (auth required)
 
-- `dreamdex buy <amount> <symbol> [--price <n>] [--order-type ...] [--funding-source wallet|vault] [--slippage <pct>]` - Buy shorthand. Market order by default; pass `--price` for limit.
-- `dreamdex sell <amount> <symbol> [--price <n>] [--order-type ...] [--funding-source wallet|vault] [--slippage <pct>]` - Sell shorthand. Market order by default; pass `--price` for limit.
-- `dreamdex order place <symbol> --side buy|sell --amount <n> [--type market|limit] [--price <n>] [--order-type normalOrder|fillOrKill|immediateOrCancel|postOnly] [--funding-source wallet|vault] [--slippage <pct>]` - Full form. `--price` required for limit. Auto-submits token approval if needed.
-- `dreamdex order list [symbol] [--status open|closed|canceled|expired|rejected]` - List orders.
+- `dreamdex buy <amount> <symbol> [--price <n>] [--order-type ...] [--funding-source wallet|vault] [--slippage <pct>] [--builder <addr> --builder-fee <bpsx1k>]` - Buy shorthand. Market order by default; pass `--price` for limit.
+- `dreamdex sell <amount> <symbol> [--price <n>] [--order-type ...] [--funding-source wallet|vault] [--slippage <pct>] [--builder <addr> --builder-fee <bpsx1k>]` - Sell shorthand. Market order by default; pass `--price` for limit.
+- `dreamdex order place <symbol> --side buy|sell --amount <n> [--type market|limit] [--price <n>] [--order-type normalOrder|fillOrKill|immediateOrCancel|postOnly] [--funding-source wallet|vault] [--slippage <pct>] [--builder <addr> --builder-fee <bpsx1k>]` - Full form. `--price` required for limit. `--builder-fee` required and >0 when `--builder` set. Auto-submits token approval if needed.
+- `dreamdex order list [symbol...] [--status open|closed|canceled|expired|rejected] [--limit N] [--cursor <c>]` - List your orders across markets.
 - `dreamdex order get <symbol> <order-id>` - Get single order details.
 - `dreamdex order cancel <symbol> <order-id>` - Cancel an open order on-chain.
 - `dreamdex order reduce <symbol> <order-id> --quantity <new-remaining>` - Reduce remaining quantity on-chain.
+- `dreamdex mytrades [symbol] [--since <ms>] [--limit N] [--cursor <c>] [--trader <addr> --as maker|taker]` - Your trades (all markets, or one symbol). `--trader` lists another wallet's trades (privileged, needs symbol).
+
+### Builder fees (auth required)
+
+- `dreamdex builder max-fee <symbol>` - Protocol-wide fee cap (BPS_TIMES_1K).
+- `dreamdex builder approval <symbol> --builder <addr> [--wallet <addr>]` - Show a wallet's builder approval.
+- `dreamdex builder approve <symbol> --builder <addr> --max-fee <bpsx1k>` - Approve a builder on-chain; `--max-fee 0` revokes.
 
 ### Stop orders (auth required)
 
-- `dreamdex stoporder place <symbol> --side buy|sell --amount <n> --trigger-price <n> --trigger-operator gte|lte [--type market|limit] [--price <n>]` - Place a conditional stop order. `--price` required for limit type.
-- `dreamdex stoporder list [symbol] [--status pending|triggered|canceled|failed]` - List stop orders.
+- `dreamdex stoporder place <symbol> --side buy|sell --amount <n> --trigger-price <n> --trigger-operator gte|lte [--type market|limit] [--price <n>]` - Place a conditional stop order. `--price` required for limit type. Auto-authorizes the stop-order operator on first use.
+- `dreamdex stoporder list [symbol...] [--status pending|triggered|canceled|failed] [--limit N] [--cursor <c>]` - List stop orders across markets.
 - `dreamdex stoporder cancel <symbol> <id>` - Cancel a pending stop order on-chain.
+- `dreamdex stoporder authorization <symbol>` - Show whether the stop-order operator is authorized.
+- `dreamdex stoporder approve <symbol>` - Authorize the stop-order operator on-chain.
 
 ### Vault (auth required)
 
@@ -57,6 +67,13 @@ You are interacting with `dreamdex`, a non-custodial trading CLI for dreamDEX on
 - `dreamdex vault approve <symbol> --currency <code> --amount <n>` - Approve token spending for deposits.
 - `dreamdex vault deposit <symbol> --currency <code> --amount <n>` - Deposit tokens into vault.
 - `dreamdex vault withdraw <symbol> --currency <code> --amount <n>` - Withdraw tokens from vault.
+
+### Account & analytics (auth required)
+
+- `dreamdex portfolio [--timeframe 24h|7d|30d|all] [--session-since <ms>]` - PnL, return, volume, and fees saved.
+- `dreamdex wallet balance [wallet] [--block N]` - Wallet and vault balances per currency across markets.
+- `dreamdex wallet volume [wallet] [--since <ms>] [--until <ms>]` - Traded volume per market.
+- `dreamdex wallet smart-wallets [wallet]` - Resolve smart wallets for an EOA.
 
 ### Live streaming (WebSocket)
 
