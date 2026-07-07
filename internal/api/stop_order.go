@@ -71,13 +71,6 @@ func (c *Client) GetStopOrders(symbol, status string) ([]StopOrder, error) {
 	return resp.StopOrders, c.do("GET", path, q, nil, &resp)
 }
 
-// GetStopOrder fetches a single stop order by ID.
-func (c *Client) GetStopOrder(symbol, id string) (*StopOrder, error) {
-	var resp StopOrder
-	path := fmt.Sprintf("/v0/markets/%s/stop-orders/%s", url.PathEscape(symbol), url.PathEscape(id))
-	return &resp, c.do("GET", path, nil, nil, &resp)
-}
-
 // CancelStopOrder returns an unsigned transaction to cancel a pending stop order.
 func (c *Client) CancelStopOrder(symbol, id string) (*Transaction, error) {
 	var resp Transaction

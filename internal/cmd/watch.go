@@ -177,7 +177,7 @@ func (a *app) pollStopOrder(cmd *cobra.Command, symbol, id string, interval time
 
 	var lastStatus string
 	for {
-		order, err := a.client.GetStopOrder(symbol, id)
+		order, err := a.findStopOrder(symbol, id)
 		if err != nil {
 			return fmt.Errorf("get stop order: %w", err)
 		}

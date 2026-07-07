@@ -338,6 +338,9 @@ func revertReason(err error) string {
 		return err.Error()
 	}
 	data := common.FromHex(hexData)
+	if msg, ok := decodeCustomError(data); ok {
+		return msg
+	}
 	if reason, unpackErr := abi.UnpackRevert(data); unpackErr == nil {
 		return reason
 	}
